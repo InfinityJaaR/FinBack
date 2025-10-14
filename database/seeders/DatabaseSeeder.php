@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,11 +12,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // 1. Crea/Encuentra el Usuario de Prueba de forma segura
+        User::firstOrCreate(
+            ['email' => 'test@example.com'], // Criterio de búsqueda
+            [
+                'name' => 'Test User',
+                // Usamos bcrypt() para generar un hash de contraseña válido
+                'password' => bcrypt('password'), // ¡Importante: Usa una contraseña segura!
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // 2. Llama al resto de los seeders de lógica de negocio
+        $this->call([
+            RubroSeeder::class,
+            RatioDefinicionSeeder::class,
+            ConceptoFinancieroSeeder::class,
+            EmpresaSeeder::class,
+            VentaMensualSeeder::class,
+            // Aquí se llamarían los seeders de seguridad (UsuarioSeeder) y datos transaccionales.
         ]);
     }
 }
