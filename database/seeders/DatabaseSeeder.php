@@ -12,24 +12,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Crea/Encuentra el Usuario de Prueba de forma segura
-        User::firstOrCreate(
-            ['email' => 'test@example.com'], // Criterio de búsqueda
-            [
-                'name' => 'Test User',
-                // Usamos bcrypt() para generar un hash de contraseña válido
-                'password' => bcrypt('password'), // ¡Importante: Usa una contraseña segura!
-            ]
-        );
-
-        // 2. Llama al resto de los seeders de lógica de negocio
         $this->call([
+            // Seguridad
+            RolSeeder::class,
+            PermisoSeeder::class,
+            UserSeeder::class,
+            // No se para que son xd
             RubroSeeder::class,
             RatioDefinicionSeeder::class,
             ConceptoFinancieroSeeder::class,
             EmpresaSeeder::class,
             VentaMensualSeeder::class,
-            // Aquí se llamarían los seeders de seguridad (UsuarioSeeder) y datos transaccionales.
+            // Aquí se llamarían los seeders dedatos transaccionales.
         ]);
     }
 }
