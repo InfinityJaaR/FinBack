@@ -20,6 +20,8 @@ class PermisoSeeder extends Seeder
             ['name' => 'manage_users', 'description' => 'Gestionar usuarios'],
             
             // Gestión de Empresas
+            ['name' => 'gestionar_rubros', 'description' => 'Permite crear, editar y eliminar rubros empresariales.'],
+            ['name' => 'gestionar_empresas', 'description' => 'Permite crear, editar y eliminar empresas.'],
 
             //Gestión de datos financieros
 
@@ -43,6 +45,8 @@ class PermisoSeeder extends Seeder
         $rolesPermisos = [
             'Administrador' => [
                 'manage_users',
+                'gestionar_rubros',
+                'gestionar_empresas',
             ],
             'Analista Financiero' => [
                 // Agregar permisos específicos para Analista Financiero
