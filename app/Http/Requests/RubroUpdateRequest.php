@@ -12,8 +12,7 @@ class RubroUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // TODO: Implementar lógica de autorización basada en roles (e.g., 'Administrador')
-        return true;
+        return $this->user()->can('gestionar_rubros');return true;
     }
 
     /**

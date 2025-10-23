@@ -14,8 +14,7 @@ class RubroStoreRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // TODO: Implementar lógica de autorización basada en roles (e.g., $this->user()->hasRole('Administrador'))
-        return true;
+        return $this->user()->can('gestionar_rubros');
     }
 
     /**
