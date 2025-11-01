@@ -40,10 +40,10 @@ class RatioDefinicion extends Model
     /**
      * Una definición de ratio se compone de varios conceptos financieros (N:M).
      */
-    public function componentes(): BelongsToMany
+    public function componentes(): HasMany
     {
         // Se usa la tabla pivote 'ratio_componentes'
-        return $this->belongsToMany(ConceptoFinanciero::class, 'ratio_componentes', 'ratio_id', 'concepto_id')
-                    ->withPivot('rol', 'orden'); // Incluye los campos extra de la tabla pivote
+        return $this->hasMany(RatioComponente::class, 'ratio_id');
+                            
     }
 }

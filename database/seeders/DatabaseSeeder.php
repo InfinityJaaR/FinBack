@@ -23,6 +23,10 @@ class DatabaseSeeder extends Seeder
             ConceptoFinancieroSeeder::class,
             EmpresaSeeder::class,
             VentaMensualSeeder::class,
+            PeriodoSeeder::class,            
+            CatalogoYMapeoSeeder::class,
+            EstadosYDetallesSeeder::class,            
+            RatioComponentesSeeder::class,
             // Aquí se llamarían los seeders dedatos transaccionales.
         ]);
     }
