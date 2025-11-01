@@ -163,6 +163,14 @@ class EmpresaController extends Controller
         $totalDependencias = $cuentasCount + $estadosCount + $ratiosCount + $ventasCount + $detallesPorEstados + $detallesPorCuentas;
 
         // Si no hay dependencias, proceder con el borrado normal
+        // Si se solicitó borrado forzado pero la empresa sigue activa, rechazar.
+        if ($request->boolean('force', false) && $empresa->activo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Borrado forzado rechazado: desactiva la empresa antes de eliminarla.'
+            ], 403);
+        }
+
         if ($totalDependencias === 0 || $request->boolean('force', false)) {
             try {
                 // Si se solicita borrado forzado, eliminar dependencias en el orden correcto
@@ -231,5 +239,37 @@ class EmpresaController extends Controller
                 'ventas_mensuales' => $ventasCount,
             ]
         ], 409);
+    }
+
+    /**
+     * Desactivar o activar una empresa sin eliminar datos.
+     * Si se envía `action=enable` en la request se activará la empresa,
+     * por defecto la acción deja la empresa desactivada.
+     */
+    public function disable(Request $request, Empresa $empresa): JsonResponse
+    {
+        $action = $request->input('action', 'disable');
+
+        try {
+            if ($action === 'enable') {
+                $empresa->update(['activo' => true]);
+                $message = 'Empresa activada exitosamente.';
+            } else {
+                $empresa->update(['activo' => false]);
+                $message = 'Empresa desactivada exitosamente.';
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'data' => $empresa->fresh()
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar estado de la empresa: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

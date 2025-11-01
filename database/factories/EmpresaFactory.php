@@ -20,6 +20,7 @@ class EmpresaFactory extends Factory
             'codigo' => $this->faker->unique()->randomNumber(5),
             'nombre' => $this->faker->company() . ' S.A. de C.V.',
             'descripcion' => $this->faker->catchPhrase(),
+            'activo' => true,
         ];
     }
 }

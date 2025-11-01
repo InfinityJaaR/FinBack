@@ -16,6 +16,11 @@ class Empresa extends Model
         'codigo',
         'nombre',
         'descripcion',
+        'activo',
+    ];
+
+    protected $casts = [
+        'activo' => 'boolean',
     ];
 
     /**
