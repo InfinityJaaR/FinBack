@@ -12,18 +12,40 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // ===================================
+        // 1. SEGURIDAD Y MAESTROS DE NIVEL 0 (Datos base)
+        // ===================================
         $this->call([
             // Seguridad
             RolSeeder::class,
             PermisoSeeder::class,
             UserSeeder::class,
-            // No se para que son xd
+            
+            // Maestros sin dependencias complejas
             RubroSeeder::class,
+            // CLAVE: Los conceptos deben existir antes de que se definan los ratios
+            ConceptoFinancieroSeeder::class, 
+        ]);
+
+        // ===================================
+        // 2. MAESTROS DE NIVEL 1 (Datos dependientes)
+        // ===================================
+        $this->call([
+            // Depende de Rubro
+            EmpresaSeeder::class, 
+            
+            // Depende de Concepto Financiero (para buscar IDs)
             RatioDefinicionSeeder::class,
-            ConceptoFinancieroSeeder::class,
-            EmpresaSeeder::class,
-            VentaMensualSeeder::class,
-            // Aquí se llamarían los seeders dedatos transaccionales.
+        ]);
+        
+        // ===================================
+        // 3. DATOS TRANSACCIONALES DE PRUEBA
+        // ===================================
+        $this->call([
+            // Dependen de Empresa
+            VentaMensualSeeder::class, 
+            // Aquí llamarías a los seeders de datos contables (EE.FF. de prueba)
+            // DetallesEstadoSeeder::class, 
         ]);
     }
 }
