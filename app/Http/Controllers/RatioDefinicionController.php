@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api; // Asumiendo que está en la carpeta Api
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\RatioDefinicion;
@@ -21,7 +21,7 @@ class RatioDefinicionController extends Controller
         try {
             // Se carga la relación 'componentes' con sus datos pivote para información completa.
             // Cargamos la relación Concepto dentro del componente para evitar N+1
-            $ratios = RatioDefinicion::with('componentes.concepto')->paginate(10);
+            $ratios = RatioDefinicion::with('componentes')->paginate(10);
             
             return response()->json([
                 'success' => true,
@@ -81,7 +81,7 @@ class RatioDefinicionController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Definición de Ratio y componentes creados exitosamente.',
-                'data' => $ratio->load('componentes.concepto') // Cargar componentes para la respuesta
+                'data' => $ratio->load('componentes') // Cargar componentes para la respuesta
             ], 201); 
 
         } catch (Exception $e) {
@@ -99,7 +99,7 @@ class RatioDefinicionController extends Controller
     public function show(RatioDefinicion $ratioDefinicion): JsonResponse
     {
         // Carga los componentes, sus conceptos y los benchmarks relacionados
-        $ratioDefinicion->load(['componentes.concepto', 'benchmarks']); 
+    $ratioDefinicion->load(['componentes', 'benchmarks']); 
         
         return response()->json([
             'success' => true,
@@ -115,7 +115,7 @@ class RatioDefinicionController extends Controller
         $conceptos = ConceptoFinanciero::select('id', 'nombre_concepto')->orderBy('nombre_concepto')->get();
         
         // Carga los componentes actuales del ratio y su concepto relacionado
-        $ratioDefinicion->load('componentes.concepto');
+    $ratioDefinicion->load('componentes');
         
         return response()->json([
             'success' => true,
@@ -153,7 +153,7 @@ class RatioDefinicionController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Definición de Ratio actualizada exitosamente.',
-                'data' => $ratioDefinicion->load('componentes.concepto')
+                'data' => $ratioDefinicion->load('componentes')
             ]);
 
         } catch (Exception $e) {

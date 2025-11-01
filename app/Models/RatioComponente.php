@@ -15,11 +15,12 @@ class RatioComponente extends Pivot
         'concepto_id',
         'rol',
         'orden',
+        'requiere_promedio',
     ];
 
     protected $casts = [
         'orden' => 'integer',
-        // El rol es un ENUM, castearlo es opcional.
+        'requiere_promedio' => 'boolean',
     ];
 
     // Definición de las relaciones BelongsTo
