@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
             PermisoSeeder::class,
             UserSeeder::class,
             
-            // Maestros sin dependencias complejas
+
             RubroSeeder::class,
             // CLAVE: Los conceptos deben existir antes de que se definan los ratios
             ConceptoFinancieroSeeder::class, 
