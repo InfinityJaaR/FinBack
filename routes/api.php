@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\RatioDefinicionController;
+use App\Http\Controllers\PeriodoController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -19,6 +20,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/periodos', [PeriodoController::class, 'index'])
+    ->middleware('auth:sanctum');
+
     
     // RUTAS DE CÁLCULO Y CONSULTA DE RATIOS POR EMPRESA (para Analista/Admin)
     Route::middleware('role:Administrador')->group(function () {
