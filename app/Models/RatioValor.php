@@ -19,7 +19,7 @@ class RatioValor extends Model
     ];
 
     protected $casts = [
-        'valor' => 'decimal:6',
+        'valor' => 'decimal:2',
     ];
 
     /**

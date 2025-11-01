@@ -13,39 +13,39 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ===================================
-        // 1. SEGURIDAD Y MAESTROS DE NIVEL 0 (Datos base)
+        // ÚNICO LLAMADO A SEEDERS (Ordenado por dependencias)
         // ===================================
         $this->call([
+            // 1. SEGURIDAD Y MAESTROS DE NIVEL 0 (Base sin dependencias)
             // Seguridad
             RolSeeder::class,
             PermisoSeeder::class,
             UserSeeder::class,
             
-
+            // Maestros Base
             RubroSeeder::class,
-            // CLAVE: Los conceptos deben existir antes de que se definan los ratios
-            ConceptoFinancieroSeeder::class, 
-        ]);
-
-        // ===================================
-        // 2. MAESTROS DE NIVEL 1 (Datos dependientes)
-        // ===================================
-        $this->call([
+            ConceptoFinancieroSeeder::class, // CLAVE: Necesario antes de RatioDefinicion
+            
+            // 2. MAESTROS DE NIVEL 1 (Datos dependientes y definiciones)
             // Depende de Rubro
             EmpresaSeeder::class, 
             
-            // Depende de Concepto Financiero (para buscar IDs)
+            // Depende de ConceptoFinanciero
             RatioDefinicionSeeder::class,
-        ]);
-        
-        // ===================================
-        // 3. DATOS TRANSACCIONALES DE PRUEBA
-        // ===================================
-        $this->call([
-            // Dependen de Empresa
+            
+            // Maestros de datos contables
+            PeriodoSeeder::class, 
+            CatalogoYMapeoSeeder::class,
+            
+            // 3. DATOS TRANSACCIONALES DE PRUEBA (Dependen de Empresas, Conceptos y Periodos)
+            // Dependen de Empresa y Periodo
             VentaMensualSeeder::class, 
-            // Aquí llamarías a los seeders de datos contables (EE.FF. de prueba)
-            // DetallesEstadoSeeder::class, 
+            
+            // Datos contables de prueba
+            EstadosYDetallesSeeder::class, 
+            
+            // Componentes que usan las definiciones y los conceptos.
+            RatioComponentesSeeder::class,
         ]);
     }
 }

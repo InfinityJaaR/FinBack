@@ -44,7 +44,6 @@ class RatioDefinicion extends Model
     {
         // Se usa la tabla pivote 'ratio_componentes'
         return $this->belongsToMany(ConceptoFinanciero::class, 'ratio_componentes', 'ratio_id', 'concepto_id')
-                    // ¡CLAVE! Se añaden los campos extra del pivote, incluyendo el nuevo
-                    ->withPivot('rol', 'orden', 'requiere_promedio'); 
+                    ->withPivot('rol', 'orden', 'requiere_promedio', 'sentido'); // Incluye los campos extra de la tabla pivote
     }
 }

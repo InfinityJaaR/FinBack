@@ -8,18 +8,20 @@ class RatioComponente extends Pivot
 {
     protected $table = 'ratio_componentes';
     public $incrementing = false; // No tiene ID autoincremental
-    protected $primaryKey = ['ratio_id', 'concepto_id']; // Clave compuesta
+    //protected $primaryKey = ['ratio_id', 'concepto_id']; // Clave compuesta
 
     protected $fillable = [
         'ratio_id',
         'concepto_id',
         'rol',
         'orden',
+        'sentido',
         'requiere_promedio',
     ];
 
     protected $casts = [
         'orden' => 'integer',
+        'sentido' => 'integer',
         'requiere_promedio' => 'boolean',
     ];
 

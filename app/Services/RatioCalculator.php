@@ -33,7 +33,8 @@ class RatioCalculator
 
         // 1. Obtener y agregar los valores de los conceptos financieros
         foreach ($componentes as $componente) {
-            $concepto = $componente->pivot->conceptoFinanciero; // Instancia de ConceptoFinanciero
+            // El objeto $componente ya es una instancia de ConceptoFinanciero; tomarla directamente
+            $concepto = $componente; // Instancia de ConceptoFinanciero
             $rol = $componente->pivot->rol;
             $requierePromedio = $componente->pivot->requiere_promedio; // NUEVO CAMPO
 

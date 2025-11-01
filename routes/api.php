@@ -12,11 +12,15 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 Route::post('/set-password', [AuthController::class, 'setPassword'])->name('set-password');
 
+// Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
+// Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
+
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/logout', [AuthController::class, 'logout']);
-
+    
+    // RUTAS DE CÁLCULO Y CONSULTA DE RATIOS POR EMPRESA (para Analista/Admin)
     Route::middleware('role:Administrador')->group(function () {
         Route::middleware('permiso:manage_users')->group(function () {
             Route::get('/users', [UserController::class, 'index']);
@@ -25,6 +29,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::put('/users/{id}', [UserController::class, 'update']);
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
         });
+
+        //     // --- Ratios por empresa (protegidas) ---
+        // Route::middleware('permiso:ver_ratios')->get(
+        //     '/empresas/{empresa}/ratios',
+        //     [RatioDefinicionController::class, 'valoresPorPeriodo']
+        // );
+
+        // Route::middleware('permiso:calcular_ratios')->post(
+        //     '/empresas/{empresa}/ratios/generar',
+        //     [RatioDefinicionController::class, 'generarPorPeriodo']
+        // );
 
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: GESTIÓN DE RUBROS
@@ -46,6 +61,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
         });
 
+
+            // Ver ratios (permiso ver_ratios)
+        Route::middleware(['permiso:ver_ratios'])->group(function () {
+            Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
+        });
+
+        // Generar ratios (permiso calcular_ratios)
+        Route::middleware(['permiso:calcular_ratios'])->group(function () {
+            Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
+        });
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: GESTIÓN DE EMPRESAS
         // Permiso requerido: 'gestionar_empresas'

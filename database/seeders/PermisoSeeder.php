@@ -26,6 +26,11 @@ class PermisoSeeder extends Seeder
 
             //Gestión de datos financieros
 
+            //Para ratios
+            ['name' => 'ver_ratios', 'description' => 'Permite consultar los ratios financieros de una empresa.'],
+            ['name' => 'calcular_ratios', 'description' => 'Permite generar ratios financieros para una empresa.'],
+
+
             //Analisis y reportes
 
             //Proyección de Ventas
@@ -49,12 +54,17 @@ class PermisoSeeder extends Seeder
                 'gestionar_rubros',
                 'gestionar_empresas',
                 'gestionar_ratios_definicion',
+                'ver_ratios',
+                'calcular_ratios',
             ],
             'Analista Financiero' => [
                 // Agregar permisos específicos para Analista Financiero
+                'ver_ratios',
+                'calcular_ratios',
             ],
             'Inversor' => [
                 // Agregar permisos específicos para Inversor
+                'ver_ratios',                
             ],
 
         ];

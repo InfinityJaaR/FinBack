@@ -8,6 +8,7 @@ use App\Http\Requests\StoreEmpresaRequest;
 use App\Http\Requests\UpdateEmpresaRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 class EmpresaController extends Controller
@@ -138,22 +139,97 @@ class EmpresaController extends Controller
      *
      * @param \App\Models\Empresa $empresa
      */
-    public function destroy(Empresa $empresa): JsonResponse
+    public function destroy(Request $request, Empresa $empresa): JsonResponse
     {
-        try {
-            $empresa->delete();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Empresa eliminada exitosamente.'
-            ], 200);
+        // Contar dependencias relevantes
+        $cuentasCount = $empresa->catalogoCuentas()->count();
+        $estadosCount = $empresa->estados()->count();
+        $ratiosCount = $empresa->ratiosValores()->count();
+        $ventasCount = $empresa->ventasMensuales()->count();
 
-        } catch (Exception $e) {
-             // Si hay restricciones de clave foránea (ON DELETE RESTRICT), esto fallará
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al eliminar la empresa. Podría tener datos asociados (cuentas, estados, etc.): ' . $e->getMessage()
-            ], 500);
+        // detalles_estado puede venir tanto por estados como por cuentas
+        $estadoIds = $empresa->estados()->pluck('id')->toArray();
+        $catalogoCuentaIds = $empresa->catalogoCuentas()->pluck('id')->toArray();
+
+        $detallesPorEstados = 0;
+        $detallesPorCuentas = 0;
+        if (!empty($estadoIds)) {
+            $detallesPorEstados = DB::table('detalles_estado')->whereIn('estado_id', $estadoIds)->count();
         }
+        if (!empty($catalogoCuentaIds)) {
+            $detallesPorCuentas = DB::table('detalles_estado')->whereIn('catalogo_cuenta_id', $catalogoCuentaIds)->count();
+        }
+
+        $totalDependencias = $cuentasCount + $estadosCount + $ratiosCount + $ventasCount + $detallesPorEstados + $detallesPorCuentas;
+
+        // Si no hay dependencias, proceder con el borrado normal
+        if ($totalDependencias === 0 || $request->boolean('force', false)) {
+            try {
+                // Si se solicita borrado forzado, eliminar dependencias en el orden correcto
+                DB::beginTransaction();
+
+                if ($request->boolean('force', false)) {
+                    // 1) Borrar detalles por estados
+                    if (!empty($estadoIds)) {
+                        DB::table('detalles_estado')->whereIn('estado_id', $estadoIds)->delete();
+                    }
+
+                    // 2) Borrar detalles por cuentas (por si hay detalles que no dependan de estados)
+                    if (!empty($catalogoCuentaIds)) {
+                        DB::table('detalles_estado')->whereIn('catalogo_cuenta_id', $catalogoCuentaIds)->delete();
+                    }
+
+                    // 3) Borrar cuenta_concepto mapeos para las cuentas de la empresa
+                    if (!empty($catalogoCuentaIds)) {
+                        DB::table('cuenta_concepto')->whereIn('catalogo_cuenta_id', $catalogoCuentaIds)->delete();
+                    }
+
+                    // 4) Borrar estados
+                    if (!empty($estadoIds)) {
+                        DB::table('estados')->whereIn('id', $estadoIds)->delete();
+                    }
+
+                    // 5) Borrar catalogo_cuentas
+                    if (!empty($catalogoCuentaIds)) {
+                        DB::table('catalogo_cuentas')->whereIn('id', $catalogoCuentaIds)->delete();
+                    }
+
+                    // 6) Borrar ratios_valores y ventas_mensuales
+                    DB::table('ratios_valores')->where('empresa_id', $empresa->id)->delete();
+                    DB::table('ventas_mensuales')->where('empresa_id', $empresa->id)->delete();
+                }
+
+                // Finalmente borrar la empresa
+                $empresa->delete();
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Empresa eliminada exitosamente.'
+                ], 200);
+
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al eliminar la empresa: ' . $e->getMessage()
+                ], 500);
+            }
+        }
+
+        // Si llegamos aquí, existen dependencias y no se pidió force: devolver conteo y sugerir desactivación
+        return response()->json([
+            'success' => false,
+            'message' => 'No se puede eliminar la empresa porque tiene datos asociados. Puedes desactivarla o ejecutar el borrado forzado.',
+            'details' => [
+                'catalogo_cuentas' => $cuentasCount,
+                'estados' => $estadosCount,
+                'detalles_por_estados' => $detallesPorEstados,
+                'detalles_por_cuentas' => $detallesPorCuentas,
+                'ratios_valores' => $ratiosCount,
+                'ventas_mensuales' => $ventasCount,
+            ]
+        ], 409);
     }
 }

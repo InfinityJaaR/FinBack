@@ -22,7 +22,7 @@ class ConceptoFinanciero extends Model
     public function ratios(): BelongsToMany
     {
         return $this->belongsToMany(RatioDefinicion::class, 'ratio_componentes', 'concepto_id', 'ratio_id')
-                    ->withPivot('rol', 'orden');
+                    ->withPivot('rol', 'orden', 'requiere_promedio', 'sentido');
     }
 
     /**
