@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api; // Asumiendo que está en la carpeta Api
 
+use App\Http\Controllers\Controller;
 use App\Models\RatioDefinicion;
-use App\Models\ConceptoFinanciero; // Necesario si se desea relacionar componentes en create/edit
+use App\Models\ConceptoFinanciero;
 use App\Http\Requests\StoreRatioDefinicionRequest;
 use App\Http\Requests\UpdateRatioDefinicionRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB; // Importar para transacciones
 use Exception;
 
 class RatioDefinicionController extends Controller
@@ -18,7 +20,8 @@ class RatioDefinicionController extends Controller
     {
         try {
             // Se carga la relación 'componentes' con sus datos pivote para información completa.
-            $ratios = RatioDefinicion::with('componentes')->paginate(10);
+            // Cargamos la relación Concepto dentro del componente para evitar N+1
+            $ratios = RatioDefinicion::with('componentes.concepto')->paginate(10);
             
             return response()->json([
                 'success' => true,
@@ -34,13 +37,12 @@ class RatioDefinicionController extends Controller
     }
 
     /**
-     * Muestra el formulario para crear un nuevo recurso.
-     * (Simulamos los datos necesarios: Conceptos disponibles)
+     * Devuelve los datos necesarios para el formulario de creación.
      */
     public function create(): JsonResponse
     {
         // Útil para poblar el formulario con los conceptos que pueden ser componentes del ratio
-        $conceptos = ConceptoFinanciero::select('id', 'nombre_concepto')->get();
+        $conceptos = ConceptoFinanciero::select('id', 'nombre_concepto')->orderBy('nombre_concepto')->get();
         
         return response()->json([
             'success' => true,
@@ -49,26 +51,41 @@ class RatioDefinicionController extends Controller
     }
 
     /**
-     * Almacena un recurso recién creado en la base de datos.
-     *
-     * @param \App\Http\Requests\StoreRatioDefinicionRequest $request
+     * Almacena un recurso recién creado en la base de datos, incluyendo sus componentes.
      */
     public function store(StoreRatioDefinicionRequest $request): JsonResponse
     {
+        // Usamos una transacción para asegurar que la definición y sus componentes se guarden juntos.
+        DB::beginTransaction();
+
         try {
-            // La validación ocurre automáticamente
-            $ratio = RatioDefinicion::create($request->validated());
+            // 1. Crear la Definición de Ratio (excluyendo el array 'componentes' para la creación inicial)
+            $ratio = RatioDefinicion::create($request->except(['componentes']));
             
-            // Nota: Aquí se necesitaría lógica adicional para asociar los 'componentes'
-            // con la tabla pivote 'ratio_componentes', que no está incluida en este request base.
+            // 2. Preparar y Adjuntar los Componentes
+            // Mapear los componentes para la tabla pivote (concepto_id => ['rol' => '...', 'orden' => '...'])
+            $componentesData = collect($request->input('componentes'))->mapWithKeys(function ($item) {
+                return [
+                    $item['concepto_id'] => [
+                        'rol' => $item['rol'],
+                        'orden' => $item['orden']
+                    ]
+                ];
+            })->toArray();
+            
+            // Usamos sync() para asociar los componentes al ratio recién creado
+            $ratio->componentes()->sync($componentesData); 
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Definición de Ratio creada exitosamente.',
-                'data' => $ratio
-            ], 201); // 201 Created
+                'message' => 'Definición de Ratio y componentes creados exitosamente.',
+                'data' => $ratio->load('componentes.concepto') // Cargar componentes para la respuesta
+            ], 201); 
 
         } catch (Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error al crear la definición de ratio: ' . $e->getMessage()
@@ -78,13 +95,11 @@ class RatioDefinicionController extends Controller
 
     /**
      * Muestra el recurso especificado.
-     *
-     * @param \App\Models\RatioDefinicion $ratioDefinicion
      */
     public function show(RatioDefinicion $ratioDefinicion): JsonResponse
     {
-        // Carga los componentes y los benchmarks relacionados
-        $ratioDefinicion->load(['componentes', 'benchmarks']); 
+        // Carga los componentes, sus conceptos y los benchmarks relacionados
+        $ratioDefinicion->load(['componentes.concepto', 'benchmarks']); 
         
         return response()->json([
             'success' => true,
@@ -93,17 +108,14 @@ class RatioDefinicionController extends Controller
     }
 
     /**
-     * Muestra el formulario para editar el recurso especificado.
-     * (Simulamos los datos necesarios para la vista de edición)
-     *
-     * @param \App\Models\RatioDefinicion $ratioDefinicion
+     * Devuelve el recurso para su edición.
      */
     public function edit(RatioDefinicion $ratioDefinicion): JsonResponse
     {
-        $conceptos = ConceptoFinanciero::select('id', 'nombre_concepto')->get();
+        $conceptos = ConceptoFinanciero::select('id', 'nombre_concepto')->orderBy('nombre_concepto')->get();
         
-        // Carga los componentes actuales del ratio
-        $ratioDefinicion->load('componentes');
+        // Carga los componentes actuales del ratio y su concepto relacionado
+        $ratioDefinicion->load('componentes.concepto');
         
         return response()->json([
             'success' => true,
@@ -113,26 +125,39 @@ class RatioDefinicionController extends Controller
     }
 
     /**
-     * Actualiza el recurso especificado en la base de datos.
-     *
-     * @param \App\Http\Requests\UpdateRatioDefinicionRequest $request
-     * @param \App\Models\RatioDefinicion $ratioDefinicion
+     * Actualiza el recurso especificado en la base de datos, incluyendo sus componentes.
      */
     public function update(UpdateRatioDefinicionRequest $request, RatioDefinicion $ratioDefinicion): JsonResponse
     {
-        try {
-            // La validación ocurre automáticamente
-            $ratioDefinicion->update($request->validated());
+        DB::beginTransaction();
 
-            // Nota: Aquí se necesitaría lógica adicional para actualizar/sincronizar los 'componentes'.
+        try {
+            // 1. Actualizar la Definición de Ratio
+            $ratioDefinicion->update($request->except(['componentes']));
+            
+            // 2. Sincronizar los Componentes (Crear, Actualizar o Eliminar relaciones en la tabla pivote)
+            $componentesData = collect($request->input('componentes'))->mapWithKeys(function ($item) {
+                return [
+                    $item['concepto_id'] => [
+                        'rol' => $item['rol'],
+                        'orden' => $item['orden']
+                    ]
+                ];
+            })->toArray();
+            
+            // Usa sync() para asegurar que solo los componentes enviados permanezcan
+            $ratioDefinicion->componentes()->sync($componentesData);
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Definición de Ratio actualizada exitosamente.',
-                'data' => $ratioDefinicion
+                'data' => $ratioDefinicion->load('componentes.concepto')
             ]);
 
         } catch (Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar la definición de ratio: ' . $e->getMessage()
@@ -142,12 +167,12 @@ class RatioDefinicionController extends Controller
 
     /**
      * Elimina el recurso especificado de la base de datos.
-     *
-     * @param \App\Models\RatioDefinicion $ratioDefinicion
      */
     public function destroy(RatioDefinicion $ratioDefinicion): JsonResponse
     {
         try {
+            // Laravel debería eliminar automáticamente los registros en 'ratio_componentes' 
+            // gracias a la clave foránea en la tabla pivote.
             $ratioDefinicion->delete();
             
             return response()->json([
@@ -156,11 +181,10 @@ class RatioDefinicionController extends Controller
             ], 200);
 
         } catch (Exception $e) {
-            // La eliminación en cascada debería manejar 'benchmarks_rubro' y 'ratios_valores'
-            // pero si hay otras restricciones no consideradas, fallaría.
+            // Manejar errores de restricciones de clave foránea que la BD podría tener
             return response()->json([
                 'success' => false,
-                'message' => 'Error al eliminar la definición de ratio. Revise sus dependencias: ' . $e->getMessage()
+                'message' => 'Error al eliminar la definición de ratio. Revise sus dependencias (ej: valores de ratios ya calculados): ' . $e->getMessage()
             ], 500);
         }
     }
