@@ -36,7 +36,7 @@ class RatioDefinicion extends Model
         return $this->hasMany(BenchmarkRubro::class, 'ratio_id');
     }
 
-    // --- NUEVA RELACIÓN ---
+    // --- RELACIÓN CLAVE ACTUALIZADA ---
     /**
      * Una definición de ratio se compone de varios conceptos financieros (N:M).
      */
@@ -44,6 +44,7 @@ class RatioDefinicion extends Model
     {
         // Se usa la tabla pivote 'ratio_componentes'
         return $this->belongsToMany(ConceptoFinanciero::class, 'ratio_componentes', 'ratio_id', 'concepto_id')
-                    ->withPivot('rol', 'orden'); // Incluye los campos extra de la tabla pivote
+                    // ¡CLAVE! Se añaden los campos extra del pivote, incluyendo el nuevo
+                    ->withPivot('rol', 'orden', 'requiere_promedio'); 
     }
 }
