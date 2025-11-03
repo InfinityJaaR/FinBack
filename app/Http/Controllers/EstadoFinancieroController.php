@@ -272,11 +272,12 @@ class EstadoFinancieroController extends Controller
             // Determinar el estado_financiero según el tipo
             $estadoFinanciero = $tipo === 'BALANCE' ? 'BALANCE_GENERAL' : 'ESTADO_RESULTADOS';
 
-            // Obtener las cuentas del catálogo filtradas por estado_financiero
+            // Obtener SOLO las cuentas más internas (no calculadas) del catálogo
             $cuentas = CatalogoCuenta::where('empresa_id', $empresaId)
                 ->where('estado_financiero', $estadoFinanciero)
+                ->where('es_calculada', false)
                 ->orderBy('codigo')
-                ->get(['codigo', 'nombre']);
+                ->get(['codigo', 'nombre', 'tipo']);
 
             if ($cuentas->isEmpty()) {
                 return response()->json([
@@ -285,9 +286,31 @@ class EstadoFinancieroController extends Controller
                 ], 404);
             }
 
-            // Generar el CSV
-            $csvContent = "Código,Nombre de Cuenta,Monto\n";
+            // Agrupar cuentas por categoría principal
+            $categorias = [
+                '1' => 'ACTIVO',
+                '2' => 'PASIVO',
+                '3' => 'PATRIMONIO',
+                '4' => 'INGRESOS',
+                '5' => 'COSTOS',
+                '6' => 'GASTOS',
+                '7' => 'OTROS RESULTADOS',
+            ];
+
+            // Generar el CSV con agrupación
+            $csvContent = "Codigo,Nombre de Cuenta,Monto\n";
+            
+            $categoriaActual = null;
             foreach ($cuentas as $cuenta) {
+                $primerDigito = substr($cuenta->codigo, 0, 1);
+                
+                // Si cambia la categoría, agregar un separador
+                if ($primerDigito !== $categoriaActual) {
+                    $categoriaActual = $primerDigito;
+                    $nombreCategoria = $categorias[$primerDigito] ?? 'OTROS';
+                    $csvContent .= "\n\"=== {$nombreCategoria} ===\",\"\",\"\"\n";
+                }
+                
                 $csvContent .= "\"{$cuenta->codigo}\",\"{$cuenta->nombre}\",0\n";
             }
 
@@ -295,7 +318,7 @@ class EstadoFinancieroController extends Controller
             $filename = "plantilla_" . strtolower($tipo) . "_{$empresa->nombre}_{$empresaId}.csv";
 
             return response($csvContent, 200)
-                ->header('Content-Type', 'text/csv')
+                ->header('Content-Type', 'text/csv; charset=utf-8')
                 ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
 
         } catch (\Exception $e) {
@@ -313,7 +336,7 @@ class EstadoFinancieroController extends Controller
     public function obtenerPeriodos()
     {
         try {
-            $periodos = Periodo::orderBy('año', 'desc')->get();
+            $periodos = Periodo::orderBy('anio', 'desc')->get();
 
             return response()->json([
                 'success' => true,

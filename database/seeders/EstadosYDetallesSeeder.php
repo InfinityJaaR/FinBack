@@ -4,52 +4,117 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use App\Models\CatalogoCuenta;
+use App\Models\Periodo;
 
 class EstadosYDetallesSeeder extends Seeder
 {
-    const EMPRESA_ID = 1;
-
     public function run(): void
     {
-        $periodoId = DB::table('periodos')->where('anio', 2024)->value('id');
+        // Empresas con catálogo completo
+        $empresas = [2, 3];
+        
+        // Periodos a crear (2023 y 2024)
+        $periodos = Periodo::whereIn('anio', [2023, 2024])->get();
 
-        // Crear los estados (uno de balance y uno de resultados)
+        foreach ($empresas as $empresaId) {
+            foreach ($periodos as $periodo) {
+                $this->crearEstadosParaEmpresaYPeriodo($empresaId, $periodo->id);
+            }
+        }
+    }
+
+    private function crearEstadosParaEmpresaYPeriodo($empresaId, $periodoId): void
+    {
+        // Crear Balance General
         DB::table('estados')->updateOrInsert(
-            ['empresa_id'=>self::EMPRESA_ID,'periodo_id'=>$periodoId,'tipo'=>'BALANCE'],
-            ['created_at'=>now(),'updated_at'=>now()]
+            [
+                'empresa_id' => $empresaId,
+                'periodo_id' => $periodoId,
+                'tipo' => 'BALANCE'
+            ],
+            [
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
         );
 
+        // Crear Estado de Resultados
         DB::table('estados')->updateOrInsert(
-            ['empresa_id'=>self::EMPRESA_ID,'periodo_id'=>$periodoId,'tipo'=>'RESULTADOS'],
-            ['created_at'=>now(),'updated_at'=>now()]
+            [
+                'empresa_id' => $empresaId,
+                'periodo_id' => $periodoId,
+                'tipo' => 'RESULTADOS'
+            ],
+            [
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
         );
 
+        // Obtener los IDs de los estados creados
         $balanceId = DB::table('estados')->where([
-            'empresa_id'=>self::EMPRESA_ID,
-            'periodo_id'=>$periodoId,
-            'tipo'=>'BALANCE'
+            'empresa_id' => $empresaId,
+            'periodo_id' => $periodoId,
+            'tipo' => 'BALANCE'
         ])->value('id');
 
         $resultadosId = DB::table('estados')->where([
-            'empresa_id'=>self::EMPRESA_ID,
-            'periodo_id'=>$periodoId,
-            'tipo'=>'RESULTADOS'
+            'empresa_id' => $empresaId,
+            'periodo_id' => $periodoId,
+            'tipo' => 'RESULTADOS'
         ])->value('id');
 
-        // Limpia los detalles anteriores
+        // Limpiar detalles anteriores
         DB::table('detalles_estado')->whereIn('estado_id', [$balanceId, $resultadosId])->delete();
 
-        // Inserta montos ejemplo
-        DB::table('detalles_estado')->insert([
-            // BALANCE
-            ['estado_id'=>$balanceId,   'catalogo_cuenta_id'=>101,'monto'=>15000.00,'created_at'=>now(),'updated_at'=>now()],
-            ['estado_id'=>$balanceId,   'catalogo_cuenta_id'=>102,'monto'=> 9000.00,'created_at'=>now(),'updated_at'=>now()],
-            ['estado_id'=>$balanceId,   'catalogo_cuenta_id'=>103,'monto'=> 3000.00,'created_at'=>now(),'updated_at'=>now()],
-            ['estado_id'=>$balanceId,   'catalogo_cuenta_id'=>106,'monto'=>16000.00,'created_at'=>now(),'updated_at'=>now()],
+        // Obtener cuentas de Balance General (tipo 1, 2, 3)
+        $cuentasBalance = CatalogoCuenta::where('empresa_id', $empresaId)
+            ->whereIn('estado_financiero', ['BALANCE_GENERAL'])
+            ->where('es_calculada', false)
+            ->orderBy('codigo')
+            ->limit(10)
+            ->get();
 
-            // RESULTADOS
-            ['estado_id'=>$resultadosId,'catalogo_cuenta_id'=>104,'monto'=>30000.00,'created_at'=>now(),'updated_at'=>now()],
-            ['estado_id'=>$resultadosId,'catalogo_cuenta_id'=>105,'monto'=> 4800.00,'created_at'=>now(),'updated_at'=>now()],
-        ]);
+        // Obtener cuentas de Estado de Resultados (tipo 4, 5, 6, 7)
+        $cuentasResultados = CatalogoCuenta::where('empresa_id', $empresaId)
+            ->whereIn('estado_financiero', ['ESTADO_RESULTADOS'])
+            ->where('es_calculada', false)
+            ->orderBy('codigo')
+            ->limit(10)
+            ->get();
+
+        // Insertar detalles para Balance General
+        $detallesBalance = [];
+        foreach ($cuentasBalance as $cuenta) {
+            $detallesBalance[] = [
+                'estado_id' => $balanceId,
+                'catalogo_cuenta_id' => $cuenta->id,
+                'monto' => rand(10000, 100000) * 100, // Montos aleatorios entre 1M y 10M
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+        }
+
+        // Insertar detalles para Estado de Resultados
+        $detallesResultados = [];
+        foreach ($cuentasResultados as $cuenta) {
+            $detallesResultados[] = [
+                'estado_id' => $resultadosId,
+                'catalogo_cuenta_id' => $cuenta->id,
+                'monto' => rand(5000, 50000) * 100, // Montos aleatorios entre 500K y 5M
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+        }
+
+        // Insertar todos los detalles
+        if (!empty($detallesBalance)) {
+            DB::table('detalles_estado')->insert($detallesBalance);
+        }
+
+        if (!empty($detallesResultados)) {
+            DB::table('detalles_estado')->insert($detallesResultados);
+        }
     }
 }

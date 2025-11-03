@@ -159,15 +159,19 @@ class CatalogoCuentaController extends Controller
             // Insertar las nuevas cuentas
             $cuentasCreadas = [];
             foreach ($cuentas as $cuenta) {
-                // Inferir estado financiero si no viene en el request
-                $estadoFinanciero = $cuenta['estado_financiero'] ?? $this->inferirEstadoFinanciero($cuenta['tipo']);
+                // Inferir estado financiero basado en el código (primer dígito)
+                $estadoFinanciero = $this->inferirEstadoFinancieroPorCodigo($cuenta['codigo']);
+                
+                // Determinar si es calculada basándose en el nivel de la cuenta
+                // Una cuenta es calculada si tiene subcuentas (su código es más corto o termina en 0)
+                $esCalculada = $this->esCuentaCalculada($cuenta['codigo'], $cuentas);
                 
                 $nuevaCuenta = CatalogoCuenta::create([
                     'empresa_id' => $empresaId,
                     'codigo' => $cuenta['codigo'],
                     'nombre' => $cuenta['nombre'],
                     'tipo' => $cuenta['tipo'],
-                    'es_calculada' => $cuenta['es_calculada'] ?? false,
+                    'es_calculada' => $esCalculada,
                     'estado_financiero' => $estadoFinanciero
                 ]);
                 $cuentasCreadas[] = $nuevaCuenta;
@@ -413,5 +417,58 @@ class CatalogoCuentaController extends Controller
             'GASTO' => 'ESTADO_RESULTADOS',
         ];
         return $mapeo[$tipo] ?? 'NINGUNO';
+    }
+
+    /**
+     * Inferir estado financiero basándose en el primer dígito del código
+     * 1 - Activo → Balance General
+     * 2 - Pasivo → Balance General
+     * 3 - Patrimonio → Balance General
+     * 4 - Ingresos → Estado de Resultados
+     * 5 - Costos → Estado de Resultados
+     * 6 - Gastos → Estado de Resultados
+     * 7 - Otros/Resultados → Estado de Resultados
+     */
+    private function inferirEstadoFinancieroPorCodigo($codigo)
+    {
+        $primerDigito = substr($codigo, 0, 1);
+        
+        $mapeo = [
+            '1' => 'BALANCE_GENERAL',
+            '2' => 'BALANCE_GENERAL',
+            '3' => 'BALANCE_GENERAL',
+            '4' => 'ESTADO_RESULTADOS',
+            '5' => 'ESTADO_RESULTADOS',
+            '6' => 'ESTADO_RESULTADOS',
+            '7' => 'ESTADO_RESULTADOS',
+        ];
+        
+        return $mapeo[$primerDigito] ?? 'NINGUNO';
+    }
+
+    /**
+     * Determinar si una cuenta es calculada
+     * Una cuenta es calculada si existen otras cuentas que comienzan con su código
+     * Ejemplo: 1.1 es calculada si existen cuentas como 1.1.01, 1.1.02, etc.
+     */
+    private function esCuentaCalculada($codigo, $todasLasCuentas)
+    {
+        // Normalizar el código (remover puntos para comparación)
+        $codigoNormalizado = str_replace('.', '', $codigo);
+        
+        // Buscar si hay cuentas que sean "hijas" de esta
+        foreach ($todasLasCuentas as $otraCuenta) {
+            $otroCodigo = $otraCuenta['codigo'];
+            $otroCodigoNormalizado = str_replace('.', '', $otroCodigo);
+            
+            // Si encontramos una cuenta cuyo código comienza con el nuestro
+            // y es más larga, entonces esta cuenta es calculada
+            if ($otroCodigo !== $codigo && 
+                str_starts_with($otroCodigoNormalizado, $codigoNormalizado)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }
