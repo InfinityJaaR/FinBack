@@ -18,6 +18,7 @@ class CatalogoCuenta extends Model
         'nombre',
         'tipo',
         'es_calculada',
+        'estado_financiero',
     ];
 
     // ... (rest of fillable, casts, etc.)
