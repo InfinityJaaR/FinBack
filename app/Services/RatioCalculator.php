@@ -76,13 +76,19 @@ class RatioCalculator
             }
         }
 
-        // 4. Ejecutar la Fórmula Final (División)
-        if ($valor_denominador === 0.0 || $valor_denominador === null) {
+        // 4. Ejecutar la Fórmula Final (División)        
+        // Si no hay denominador definido, asumimos 1.0 (para ratios como Capital de Trabajo)
+        if ($valor_denominador === null) {
+            $valor_denominador = 1.0;
+        }
+
+        if ($valor_denominador === 0.0) {
             throw new Exception("División por cero: El denominador del ratio '{$ratioDefinicion->nombre}' es cero o no tiene valor.");
         }
 
         // Retorna el resultado del cálculo
         return $numerador / $valor_denominador;
+
     }
     
     /**
