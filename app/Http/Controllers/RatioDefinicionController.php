@@ -237,7 +237,10 @@ class RatioDefinicionController extends Controller
         // Calcular según componentes ordenados
         $components = $ratioDefinicion->componentes()->orderBy('ratio_componentes.orden')->get();
 
-        $num = 0.0; $den = 0.0; $op = 0.0; $tieneDen = false;
+        $num = 0.0;
+        $den = 0.0;
+        $op = 0.0;
+        $tieneDen = false;
         $breakdown = [];
 
         foreach ($components as $c) {
@@ -336,71 +339,70 @@ class RatioDefinicionController extends Controller
     }
 
     public function generarPorPeriodo(Empresa $empresa, GenerarRatiosEmpresaRequest $request): JsonResponse
-{
-    try {
-        $periodoId = $this->resolvePeriodoId((int)$request->validated()['periodo_id']);
-        if (!$periodoId) {
-            return response()->json(['success'=>false,'message'=>'periodo_id inválido'], 422);
-        }
-
-        // Trae el modelo Periodo requerido por el servicio
-        $periodo = \App\Models\Periodo::find($periodoId);
-        if (!$periodo) {
-            return response()->json(['success'=>false,'message'=>'Periodo no encontrado'], 404);
-        }
-
-        /** @var RatioCalculator $calc */
-        $calc   = app(RatioCalculator::class);
-        $ratios = \App\Models\RatioDefinicion::with('componentes')->get();
-
-        $guardados  = 0;
-        $saltados   = [];
-        $resultados = [];
-
-        foreach ($ratios as $ratio) {
-            try {
-                $valor = $calc->calculateRatio($ratio, $empresa, $periodo); // <- método correcto
-
-                if ($valor !== null) {
-                    \App\Models\RatioValor::updateOrCreate(
-                        ['empresa_id'=>$empresa->id,'periodo_id'=>$periodo->id,'ratio_id'=>$ratio->id],
-                        ['valor'=>round($valor, 2),'fuente'=>'CALCULADO']
-                    );
-                    $guardados++;
-                } else {
-                    $saltados[] = $ratio->codigo;
-                }
-
-                $resultados[] = [
-                    'codigo' => $ratio->codigo,
-                    'nombre' => $ratio->nombre,
-                    'valor'  => $valor !== null ? round($valor, 2) : null,
-                ];
-            } catch (\Throwable $ex) {
-                // Deja huella de por qué se saltó (división por cero, sin componentes, etc.)
-                $saltados[] = $ratio->codigo;
-                $resultados[] = [
-                    'codigo' => $ratio->codigo,
-                    'nombre' => $ratio->nombre,
-                    'valor'  => null,
-                    'error'  => $ex->getMessage(),
-                ];
-                Log::warning('[ratios] fallo calculando '.$ratio->codigo, ['err'=>$ex->getMessage()]);
+    {
+        try {
+            $periodoId = $this->resolvePeriodoId((int)$request->validated()['periodo_id']);
+            if (!$periodoId) {
+                return response()->json(['success' => false, 'message' => 'periodo_id inválido'], 422);
             }
+
+            // Trae el modelo Periodo requerido por el servicio
+            $periodo = \App\Models\Periodo::find($periodoId);
+            if (!$periodo) {
+                return response()->json(['success' => false, 'message' => 'Periodo no encontrado'], 404);
+            }
+
+            /** @var RatioCalculator $calc */
+            $calc   = app(RatioCalculator::class);
+            $ratios = \App\Models\RatioDefinicion::with('componentes')->get();
+
+            $guardados  = 0;
+            $saltados   = [];
+            $resultados = [];
+
+            foreach ($ratios as $ratio) {
+                try {
+                    $valor = $calc->calculateRatio($ratio, $empresa, $periodo); // <- método correcto
+
+                    if ($valor !== null) {
+                        \App\Models\RatioValor::updateOrCreate(
+                            ['empresa_id' => $empresa->id, 'periodo_id' => $periodo->id, 'ratio_id' => $ratio->id],
+                            ['valor' => round($valor, 2), 'fuente' => 'CALCULADO']
+                        );
+                        $guardados++;
+                    } else {
+                        $saltados[] = $ratio->codigo;
+                    }
+
+                    $resultados[] = [
+                        'codigo' => $ratio->codigo,
+                        'nombre' => $ratio->nombre,
+                        'valor'  => $valor !== null ? round($valor, 2) : null,
+                    ];
+                } catch (\Throwable $ex) {
+                    // Deja huella de por qué se saltó (división por cero, sin componentes, etc.)
+                    $saltados[] = $ratio->codigo;
+                    $resultados[] = [
+                        'codigo' => $ratio->codigo,
+                        'nombre' => $ratio->nombre,
+                        'valor'  => null,
+                        'error'  => $ex->getMessage(),
+                    ];
+                    Log::warning('[ratios] fallo calculando ' . $ratio->codigo, ['err' => $ex->getMessage()]);
+                }
+            }
+
+            return response()->json([
+                'success'   => true,
+                'empresaId' => $empresa->id,
+                'periodoId' => $periodo->id,
+                'guardados' => $guardados,
+                'saltados'  => $saltados,
+                'valores'   => $resultados,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('[ratios] generarPorPeriodo', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
-
-        return response()->json([
-            'success'   => true,
-            'empresaId' => $empresa->id,
-            'periodoId' => $periodo->id,
-            'guardados' => $guardados,
-            'saltados'  => $saltados,
-            'valores'   => $resultados,
-        ]);
-    } catch (\Throwable $e) {
-        \Log::error('[ratios] generarPorPeriodo', ['error'=>$e->getMessage()]);
-        return response()->json(['success'=>false,'message'=>'Error: '.$e->getMessage()], 500);
     }
-}
-
 }
