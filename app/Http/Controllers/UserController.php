@@ -10,7 +10,7 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::with('roles')->whereDoesntHave('roles', function ($query) {
+        $query = User::with(['roles', 'empresa'])->whereDoesntHave('roles', function ($query) {
             $query->where('name', 'Administrador');
         });
 
@@ -19,6 +19,17 @@ class UserController extends Controller
         if ($request->has('active') && $request->active !== 'todos') {
             $active = filter_var($request->active, FILTER_VALIDATE_BOOLEAN);
             $query->where('active', $active);
+        }
+
+        // Filtrar por empresa si se proporciona el parámetro
+        if ($request->has('empresa_id')) {
+            if ($request->empresa_id === 'null') {
+                // Usuarios sin empresa asignada
+                $query->whereNull('empresa_id');
+            } else {
+                // Usuarios de una empresa específica
+                $query->where('empresa_id', $request->empresa_id);
+            }
         }
 
         $users = $query->get();
@@ -34,7 +45,7 @@ class UserController extends Controller
 
     public function show($id)
     {
-        $user = User::with('roles')->find($id);
+        $user = User::with(['roles', 'empresa'])->find($id);
 
         if (!$user) {
             return response()->json(['message' => 'Usuario no encontrado'], 404);
@@ -57,7 +68,8 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
             'role_id' => 'sometimes|exists:roles,id',
-            'active' => 'sometimes|boolean'
+            'active' => 'sometimes|boolean',
+            'empresa_id' => 'nullable|exists:empresas,id'
         ]);
 
         if ($validator->fails()) {
@@ -81,11 +93,15 @@ class UserController extends Controller
             $user->active = $request->active;
         }
 
+        if ($request->has('empresa_id')) {
+            $user->empresa_id = $request->empresa_id;
+        }
+
         $user->save();
 
         return response()->json([
             'message' => 'Usuario actualizado correctamente',
-            'user' => $user->load('roles')
+            'user' => $user->load(['roles', 'empresa'])
         ], 200);
     }
 

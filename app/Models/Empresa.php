@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\RatioValor;
+use App\Models\User;
 
 class Empresa extends Model
 {
@@ -61,6 +62,15 @@ class Empresa extends Model
     public function ratiosValores(): HasMany
     {
         return $this->hasMany(RatioValor::class);
+    }
+
+    /**
+     * La empresa tiene varios usuarios asignados (1:N).
+     * Un usuario puede pertenecer a una empresa.
+     */
+    public function usuarios(): HasMany
+    {
+        return $this->hasMany(User::class);
     }
     
     // (Relación de seguridad omitida: accesoUsuarios)

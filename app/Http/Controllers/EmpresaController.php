@@ -272,4 +272,36 @@ class EmpresaController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Listar usuarios asociados a una empresa.
+     *
+     * @param \App\Models\Empresa $empresa
+     */
+    public function usuarios(Empresa $empresa): JsonResponse
+    {
+        try {
+            // Obtener usuarios con sus roles
+            $usuarios = $empresa->usuarios()->with('roles')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'empresa' => [
+                        'id' => $empresa->id,
+                        'nombre' => $empresa->nombre,
+                        'codigo' => $empresa->codigo
+                    ],
+                    'usuarios' => $usuarios,
+                    'total_usuarios' => $usuarios->count()
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener usuarios de la empresa: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

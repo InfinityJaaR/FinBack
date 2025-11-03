@@ -25,6 +25,7 @@ class PermisoSeeder extends Seeder
             ['name' => 'gestionar_ratios_definicion', 'description' => 'Permite crear, editar y eliminar definiciones de ratios financieros.'],
 
             //Gestión de datos financieros
+            ['name' => 'gestionar_catalogo_cuentas', 'description' => 'Permite cargar, editar y eliminar catálogo de cuentas contables de las empresas.'],
 
             //Para ratios
             ['name' => 'ver_ratios', 'description' => 'Permite consultar los ratios financieros de una empresa.'],
@@ -54,11 +55,13 @@ class PermisoSeeder extends Seeder
                 'gestionar_rubros',
                 'gestionar_empresas',
                 'gestionar_ratios_definicion',
+                'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
             ],
             'Analista Financiero' => [
                 // Agregar permisos específicos para Analista Financiero
+                'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
             ],

@@ -7,6 +7,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\RatioDefinicionController;
+use App\Http\Controllers\CatalogoCuentaController;
+use App\Http\Controllers\PeriodoController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -22,6 +24,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/periodos', [PeriodoController::class, 'index'])
+    ->middleware('auth:sanctum');
+
     
     // RUTAS DE CÁLCULO Y CONSULTA DE RATIOS POR EMPRESA (para Analista/Admin)
     Route::middleware('role:Administrador')->group(function () {
@@ -104,8 +109,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // ELIMINAR una empresa (Destroy)
             Route::delete('/empresas/{empresa}', [EmpresaController::class, 'destroy'])->name('empresas.destroy');
+            
             // DESACTIVAR / ACTIVAR una empresa (Disable/Enable)
             Route::patch('/empresas/{empresa}/disable', [EmpresaController::class, 'disable'])->name('empresas.disable');
+            
+            // LISTAR usuarios de una empresa
+            Route::get('/empresas/{empresa}/usuarios', [EmpresaController::class, 'usuarios'])->name('empresas.usuarios');
         });
 
         // ----------------------------------------------------------------------
@@ -134,6 +143,30 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // ELIMINAR una definición de ratio (Destroy)
             Route::delete('/ratios/definiciones/{ratio_definicion}', [RatioDefinicionController::class, 'destroy'])->name('ratios.definiciones.destroy');
+        });
+    });
+
+    Route::middleware('role:Administrador,Analista Financiero')->group(function () {
+        
+        // ----------------------------------------------------------------------
+        // GRUPO DE RUTAS: GESTIÓN DE CATÁLOGO DE CUENTAS
+        // Permiso requerido: 'gestionar_catalogo_cuentas'
+        // ----------------------------------------------------------------------
+        Route::middleware('permiso:gestionar_catalogo_cuentas')->group(function () {
+            // OBTENER lista de empresas con información de catálogo
+            Route::get('/catalogo-cuentas/empresas', [CatalogoCuentaController::class, 'empresasConCatalogo'])->name('catalogo.empresas');
+            
+            // OBTENER catálogo de cuentas de una empresa específica
+            Route::get('/catalogo-cuentas/empresa/{empresaId}', [CatalogoCuentaController::class, 'index'])->name('catalogo.index');
+            
+            // CARGAR/REEMPLAZAR catálogo completo de una empresa
+            Route::post('/catalogo-cuentas', [CatalogoCuentaController::class, 'store'])->name('catalogo.store');
+            
+            // ACTUALIZAR una cuenta específica
+            Route::put('/catalogo-cuentas/{id}', [CatalogoCuentaController::class, 'update'])->name('catalogo.update');
+            
+            // ELIMINAR una cuenta específica
+            Route::delete('/catalogo-cuentas/{id}', [CatalogoCuentaController::class, 'destroy'])->name('catalogo.destroy');
         });
     });
 
