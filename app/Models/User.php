@@ -19,6 +19,7 @@ class User extends Authenticatable
         'email',
         'password',
         'active',
+        'empresa_id',
     ];
 
     protected $hidden = [
@@ -30,6 +31,16 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Rol::class, 'user_role', 'user_id', 'role_id');
     }
+
+    /**
+     * Relación con Empresa (N:1)
+     * Un usuario puede pertenecer a una empresa o a ninguna (nullable)
+     */
+    public function empresa()
+    {
+        return $this->belongsTo(Empresa::class);
+    }
+
     /**
      * Determina si el usuario tiene una habilidad/permiso específico.
      * Sobrescribe el método can() para usar tu lógica de roles->permisos.

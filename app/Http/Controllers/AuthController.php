@@ -19,7 +19,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'nullable|string|min:8',
-            'role_id' => 'required|exists:roles,id'
+            'role_id' => 'required|exists:roles,id',
+            'empresa_id' => 'nullable|exists:empresas,id'
         ]);
 
         if($validator->fails()) {
@@ -29,7 +30,8 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => $request->filled('password') ? Hash::make($request->password) : null
+            'password' => $request->filled('password') ? Hash::make($request->password) : null,
+            'empresa_id' => $request->empresa_id
         ]);
 
         // Asignar rol
@@ -38,7 +40,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'data' => $user->load('roles'),
+            'data' => $user->load(['roles', 'empresa']),
             'access_token' => $token,
             'token_type' => 'Bearer'
         ], 200);

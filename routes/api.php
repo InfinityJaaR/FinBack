@@ -97,8 +97,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // ELIMINAR una empresa (Destroy)
             Route::delete('/empresas/{empresa}', [EmpresaController::class, 'destroy'])->name('empresas.destroy');
+            
             // DESACTIVAR / ACTIVAR una empresa (Disable/Enable)
             Route::patch('/empresas/{empresa}/disable', [EmpresaController::class, 'disable'])->name('empresas.disable');
+            
+            // LISTAR usuarios de una empresa
+            Route::get('/empresas/{empresa}/usuarios', [EmpresaController::class, 'usuarios'])->name('empresas.usuarios');
         });
 
         // ----------------------------------------------------------------------
