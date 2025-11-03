@@ -200,6 +200,97 @@ class RatioDefinicionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Calcula un único ratio para una empresa y periodo y devuelve el breakdown.
+     * Permiso: calcular_ratios (analistas/administradores)
+     */
+    public function calculate(RatioDefinicion $ratioDefinicion, Request $request): JsonResponse
+    {
+        $empresaId = $request->input('empresa_id') ?? $request->query('empresa_id');
+        $periodoInput = $request->input('periodo_id') ?? $request->query('periodo_id');
+        if (! $empresaId || ! $periodoInput) {
+            return response()->json(['success' => false, 'message' => 'Se requiere empresa_id y periodo_id'], 422);
+        }
+
+        $empresa = Empresa::find($empresaId);
+        if (! $empresa) return response()->json(['success' => false, 'message' => 'Empresa no encontrada'], 404);
+
+        $periodoId = $this->resolvePeriodoId($periodoInput);
+        if (! $periodoId) return response()->json(['success' => false, 'message' => 'Periodo inválido'], 422);
+
+        // Montos por concepto para la empresa y periodo
+        $montosPorConcepto = DB::table('detalles_estado as de')
+            ->join('estados as e', function ($j) use ($empresa, $periodoId) {
+                $j->on('e.id', '=', 'de.estado_id')
+                    ->where('e.empresa_id', '=', $empresa->id)
+                    ->where('e.periodo_id', '=', $periodoId);
+            })
+            ->join('cuenta_concepto as cc', 'cc.catalogo_cuenta_id', '=', 'de.catalogo_cuenta_id')
+            ->select('cc.concepto_id', DB::raw('SUM(de.monto) AS suma'))
+            ->groupBy('cc.concepto_id')
+            ->get()
+            ->pluck('suma', 'concepto_id')
+            ->toArray();
+
+        // Calcular según componentes ordenados
+        $components = $ratioDefinicion->componentes()->orderBy('ratio_componentes.orden')->get();
+
+        $num = 0.0; $den = 0.0; $op = 0.0; $tieneDen = false;
+        $breakdown = [];
+
+        foreach ($components as $c) {
+            $conceptoId = $c->id;
+            $monto = (float)($montosPorConcepto[$conceptoId] ?? 0);
+            $signo = (int)($c->pivot->sentido ?? 1);
+            $rol = $c->pivot->rol ?? null;
+
+            $contrib = $signo * $monto;
+            if ($rol === 'NUMERADOR') {
+                $num += $contrib;
+            } elseif ($rol === 'DENOMINADOR') {
+                $den += $contrib;
+                $tieneDen = true;
+            } else {
+                $op += $contrib;
+            }
+
+            $breakdown[] = [
+                'concepto_id' => $conceptoId,
+                'concepto' => $c->nombre_concepto,
+                'rol' => $rol,
+                'monto' => $monto,
+                'signo' => $signo,
+                'contribucion' => $contrib,
+            ];
+        }
+
+        if (! $tieneDen) $den = 1.0;
+        $valor = (abs($den) < 1e-9) ? null : ($num + $op) / $den;
+
+        // aplicar multiplicador
+        if (! is_null($valor)) {
+            $valor = $valor * ($ratioDefinicion->multiplicador ?? 1.0);
+        }
+
+        return response()->json([
+            'success' => true,
+            'empresa_id' => $empresa->id,
+            'periodo_id' => $periodoId,
+            'ratio' => [
+                'codigo' => $ratioDefinicion->codigo,
+                'nombre' => $ratioDefinicion->nombre,
+                'categoria' => $ratioDefinicion->categoria,
+                'multiplicador' => $ratioDefinicion->multiplicador,
+                'is_protected' => $ratioDefinicion->is_protected,
+            ],
+            'breakdown' => $breakdown,
+            'num' => round($num, 6),
+            'den' => round($den, 6),
+            'op' => round($op, 6),
+            'valor' => is_null($valor) ? null : round($valor, 6),
+        ]);
+    }
     /* ======================
          * 0) Helper de periodo
      * ====================== */
@@ -315,6 +406,8 @@ class RatioDefinicionController extends Controller
                 if (is_null($valor)) {
                     $saltados[] = $ratio->codigo;
                 } else {
+                    // aplicar multiplicador si existe
+                    $valor = $valor * ($ratio->multiplicador ?? 1.0);
                     \App\Models\RatioValor::updateOrCreate(
                         ['empresa_id' => $empresa->id, 'periodo_id' => $periodoId, 'ratio_id' => $ratio->id],
                         ['valor' => $valor, 'fuente' => 'CALCULADO']
@@ -352,5 +445,17 @@ class RatioDefinicionController extends Controller
                 'message' => 'Error al generar ratios: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Devuelve la lista de categorías permitidas para classificiar ratios.
+     * Permiso: ver_ratios
+     */
+    public function categorias(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'categorias' => RatioDefinicion::CATEGORIES,
+        ]);
     }
 }

@@ -77,12 +77,16 @@ Campos del objeto principal `ratios_definiciones`:
 - nombre: string required max:120
 - formula: string required
 - sentido: string required in ["MAYOR_MEJOR","MENOR_MEJOR","CERCANO_A_1"]
+- categoria: string required in ["LIQUIDEZ","ENDEUDAMIENTO","RENTABILIDAD","EFICIENCIA","COBERTURA"]
+- multiplicador: number optional (factor por el que se multiplica el resultado final, default 1.0)
+- is_protected: boolean optional (si true, solo administradores pueden editar/eliminar esta definición)
 
 Campos del array `componentes` (requerido, array mínimo 2 elementos):
 - componentes.*.concepto_id: required, integer, exists:conceptos_financieros,id
 - componentes.*.rol: required, string, in ["NUMERADOR","DENOMINADOR","OPERANDO"]
 - componentes.*.orden: required, integer, min:1
 - componentes.*.requiere_promedio: required, boolean
+- componentes.*.sentido: required, integer, in [1, -1] (1 para contribución positiva, -1 para contribución negativa)
 
 Mensajes claves de validación (resumen):
 - `codigo.unique` -> mensaje amigable si hay duplicado
@@ -99,9 +103,10 @@ JSON de ejemplo para crear una definición con 2 componentes:
   "nombre": "Return on Assets",
   "formula": "(Utilidad Neta) / Activos Totales",
   "sentido": "MAYOR_MEJOR",
+  "categoria": "RENTABILIDAD",
   "componentes": [
-    { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false },
-    { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": true }
+    { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false, "sentido": 1 },
+    { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": true, "sentido": 1 }
   ]
 }
 
@@ -112,8 +117,8 @@ Cómo se sincronizan los componentes (pivote)
 ------------------------------------------
 - El controlador mapea cada elemento de `componentes` usando `mapWithKeys` para transformar la lista en la estructura requerida por `sync()`:
 
-  componente (input): { concepto_id: 5, rol: 'NUMERADOR', orden: 1, requiere_promedio: true }
-  -> mapea a: [ 5 => ['rol' => 'NUMERADOR', 'orden' => 1, 'requiere_promedio' => true] ]
+  componente (input): { concepto_id: 5, rol: 'NUMERADOR', orden: 1, requiere_promedio: true, sentido: 1 }
+  -> mapea a: [ 5 => ['rol' => 'NUMERADOR', 'orden' => 1, 'requiere_promedio' => true, 'sentido' => 1] ]
 
 - Luego `->componentes()->sync($componentesData)` hace:
   - Inserta nuevas asociaciones

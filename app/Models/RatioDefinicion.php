@@ -11,11 +11,28 @@ class RatioDefinicion extends Model
     use HasFactory;
     protected $table = 'ratios_definiciones';
     
+    // Categorías permitidas para clasificar los ratios
+    public const CATEGORIES = [
+        'LIQUIDEZ',
+        'ENDEUDAMIENTO',
+        'RENTABILIDAD',
+        'EFICIENCIA',
+        'COBERTURA',
+    ];
+
     protected $fillable = [
         'codigo',
         'nombre',
         'formula',
         'sentido',
+        'categoria',
+        'multiplicador',
+        'is_protected',
+    ];
+
+    protected $casts = [
+        'multiplicador' => 'float',
+        'is_protected' => 'boolean',
     ];
 
     // ... (rest of fillable, casts, etc.)

@@ -12,8 +12,10 @@ class StoreRatioDefinicionRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Asumiendo que la gestión de ratios cae bajo la gestión empresarial/financiera
-        return $this->user()->can('gestionar_ratios_definicion'); 
+        // Solo los usuarios con rol 'Administrador' pueden crear definiciones de ratios.
+        $user = $this->user();
+        if (! $user) return false;
+        return $user->roles()->where('name', 'Administrador')->exists();
     }
 
     /**
@@ -21,8 +23,11 @@ class StoreRatioDefinicionRequest extends FormRequest
      */
     public function rules(): array
     {
-        // Valores posibles para el ENUM 'sentido'
-        $sentidos = ['MAYOR_MEJOR', 'MENOR_MEJOR', 'CERCANO_A_1'];
+    // Valores posibles para el ENUM 'sentido'
+    $sentidos = ['MAYOR_MEJOR', 'MENOR_MEJOR', 'CERCANO_A_1'];
+
+    // Categorías de ratios (protector para clasificación en frontend)
+    $categorias = ['LIQUIDEZ', 'ENDEUDAMIENTO', 'RENTABILIDAD', 'EFICIENCIA', 'COBERTURA'];
 
         // Valores posibles para el ENUM 'rol' en la tabla pivote ratio_componentes
         $roles_componente = ['NUMERADOR', 'DENOMINADOR', 'OPERANDO'];
@@ -33,6 +38,12 @@ class StoreRatioDefinicionRequest extends FormRequest
             'nombre' => ['required', 'string', 'max:120'],
             'formula' => ['required', 'string'], // Texto visible de la fórmula
             'sentido' => ['required', 'string', Rule::in($sentidos)],
+            // NUEVO: categoría del ratio (p.ej. LIQUIDEZ, ENDEUDAMIENTO...)
+            'categoria' => ['required', 'string', Rule::in($categorias)],
+            // multiplicador opcional (factor aplicado al resultado)
+            'multiplicador' => ['sometimes', 'numeric'],
+            // bandera de protección (solo admin puede crear, por eso permitimos su envío)
+            'is_protected' => ['sometimes', 'boolean'],
             
             // --- Reglas para los Componentes (Tabla pivote ratio_componentes) ---
             'componentes' => ['required', 'array', 'min:2'], // Debe ser un array y tener al menos 2 elementos (Num y Den)
@@ -53,6 +64,10 @@ class StoreRatioDefinicionRequest extends FormRequest
         return [
             'codigo.unique' => 'Ya existe una definición de ratio con este código.',
             'sentido.in' => 'El valor para sentido no es válido. Debe ser MAYOR_MEJOR, MENOR_MEJOR o CERCANO_A_1.',
+            'categoria.in' => 'La categoría no es válida. Debe ser LIQUIDEZ, ENDEUDAMIENTO, RENTABILIDAD, EFICIENCIA o COBERTURA.',
+            'categoria.required' => 'Debe indicar la categoría del ratio.',
+            'multiplicador.numeric' => 'El multiplicador debe ser un número válido.',
+            'is_protected.boolean' => 'is_protected debe ser verdadero o falso.',
             
             'componentes.required' => 'La definición de un ratio debe incluir al menos dos componentes (Numerador y Denominador).',
             'componentes.min' => 'La definición de un ratio debe incluir al menos dos componentes (Numerador y Denominador).',

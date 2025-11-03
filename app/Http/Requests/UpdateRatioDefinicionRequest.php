@@ -12,8 +12,10 @@ class UpdateRatioDefinicionRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Asumiendo que la gestión de ratios cae bajo la gestión empresarial/financiera
-        return $this->user()->can('gestionar_ratios_definicion'); 
+        // Solo los usuarios con rol 'Administrador' pueden actualizar definiciones de ratios.
+        $user = $this->user();
+        if (! $user) return false;
+        return $user->roles()->where('name', 'Administrador')->exists();
     }
 
     /**
@@ -25,8 +27,11 @@ class UpdateRatioDefinicionRequest extends FormRequest
         // NOTA: $this->route('ratio_definicion') resuelve el modelo gracias al Route Model Binding
         $ratioDefinicionId = $this->route('ratio_definicion')->id; 
 
-        // Valores posibles para el ENUM 'sentido'
-        $sentidos = ['MAYOR_MEJOR', 'MENOR_MEJOR', 'CERCANO_A_1'];
+    // Valores posibles para el ENUM 'sentido'
+    $sentidos = ['MAYOR_MEJOR', 'MENOR_MEJOR', 'CERCANO_A_1'];
+
+    // Categorías de ratios
+    $categorias = ['LIQUIDEZ', 'ENDEUDAMIENTO', 'RENTABILIDAD', 'EFICIENCIA', 'COBERTURA'];
 
         // Valores posibles para el ENUM 'rol' en la tabla pivote ratio_componentes
         $roles_componente = ['NUMERADOR', 'DENOMINADOR', 'OPERANDO'];
@@ -44,6 +49,11 @@ class UpdateRatioDefinicionRequest extends FormRequest
             'nombre' => ['required', 'string', 'max:120'],
             'formula' => ['required', 'string'], // Texto visible de la fórmula
             'sentido' => ['required', 'string', Rule::in($sentidos)],
+            // categoría del ratio
+            'categoria' => ['required', 'string', Rule::in($categorias)],
+            // multiplicador opcional
+            'multiplicador' => ['sometimes', 'numeric'],
+            'is_protected' => ['sometimes', 'boolean'],
             
             // --- Reglas para los Componentes (Tabla pivote ratio_componentes) ---
             'componentes' => ['required', 'array', 'min:2'], // Debe ser un array y tener al menos 2 elementos
@@ -64,6 +74,10 @@ class UpdateRatioDefinicionRequest extends FormRequest
         return [
             'codigo.unique' => 'Ya existe otra definición de ratio con este código.',
             'sentido.in' => 'El valor para sentido no es válido. Debe ser MAYOR_MEJOR, MENOR_MEJOR o CERCANO_A_1.',
+            'categoria.in' => 'La categoría no es válida. Debe ser LIQUIDEZ, ENDEUDAMIENTO, RENTABILIDAD, EFICIENCIA o COBERTURA.',
+            'categoria.required' => 'Debe indicar la categoría del ratio.',
+            'multiplicador.numeric' => 'El multiplicador debe ser un número válido.',
+            'is_protected.boolean' => 'is_protected debe ser verdadero o falso.',
             
             'componentes.required' => 'La definición de un ratio debe incluir al menos dos componentes (Numerador y Denominador).',
             'componentes.min' => 'La definición de un ratio debe incluir al menos dos componentes (Numerador y Denominador).',

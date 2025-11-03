@@ -12,6 +12,9 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 Route::post('/set-password', [AuthController::class, 'setPassword'])->name('set-password');
 
+// Ruta pública: lista de categorías de ratios (no requiere autenticación)
+Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
+
 // Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
 // Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
 
@@ -65,11 +68,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // Ver ratios (permiso ver_ratios)
         Route::middleware(['permiso:ver_ratios'])->group(function () {
             Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
+                // Listado de categorías permitidas para clasificar ratios
+                Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
         });
 
         // Generar ratios (permiso calcular_ratios)
         Route::middleware(['permiso:calcular_ratios'])->group(function () {
             Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
+            // Calcular un único ratio (dry-run + breakdown)
+            Route::get('/ratios/definiciones/{ratio_definicion}/calculate', [RatioDefinicionController::class, 'calculate']);
         });
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: GESTIÓN DE EMPRESAS
