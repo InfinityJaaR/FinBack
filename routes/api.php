@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\RatioDefinicionController;
+use App\Http\Controllers\CatalogoCuentaController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -131,6 +132,30 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // ELIMINAR una definición de ratio (Destroy)
             Route::delete('/ratios/definiciones/{ratio_definicion}', [RatioDefinicionController::class, 'destroy'])->name('ratios.definiciones.destroy');
+        });
+    });
+
+    Route::middleware('role:Administrador,Analista Financiero')->group(function () {
+        
+        // ----------------------------------------------------------------------
+        // GRUPO DE RUTAS: GESTIÓN DE CATÁLOGO DE CUENTAS
+        // Permiso requerido: 'gestionar_catalogo_cuentas'
+        // ----------------------------------------------------------------------
+        Route::middleware('permiso:gestionar_catalogo_cuentas')->group(function () {
+            // OBTENER lista de empresas con información de catálogo
+            Route::get('/catalogo-cuentas/empresas', [CatalogoCuentaController::class, 'empresasConCatalogo'])->name('catalogo.empresas');
+            
+            // OBTENER catálogo de cuentas de una empresa específica
+            Route::get('/catalogo-cuentas/empresa/{empresaId}', [CatalogoCuentaController::class, 'index'])->name('catalogo.index');
+            
+            // CARGAR/REEMPLAZAR catálogo completo de una empresa
+            Route::post('/catalogo-cuentas', [CatalogoCuentaController::class, 'store'])->name('catalogo.store');
+            
+            // ACTUALIZAR una cuenta específica
+            Route::put('/catalogo-cuentas/{id}', [CatalogoCuentaController::class, 'update'])->name('catalogo.update');
+            
+            // ELIMINAR una cuenta específica
+            Route::delete('/catalogo-cuentas/{id}', [CatalogoCuentaController::class, 'destroy'])->name('catalogo.destroy');
         });
     });
 
