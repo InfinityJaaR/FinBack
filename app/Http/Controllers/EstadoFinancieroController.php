@@ -127,6 +127,22 @@ class EstadoFinancieroController extends Controller
                 ], 422);
             }
 
+            // Obtener todas las cuentas del catálogo de esta empresa
+            $catalogoCompleto = CatalogoCuenta::where('empresa_id', $request->empresa_id)
+                ->get()
+                ->keyBy('id');
+
+            // Calcular cuentas agregadas (padres) - esto también crea cuentas faltantes en el catálogo
+            $detallesConCalculadas = $this->calcularCuentasAgregadas(
+                $request->detalles, 
+                $catalogoCompleto
+            );
+
+            // Recargar el catálogo después de crear cuentas nuevas
+            $catalogoCompleto = CatalogoCuenta::where('empresa_id', $request->empresa_id)
+                ->get()
+                ->keyBy('id');
+
             // Crear el estado financiero
             $estado = Estado::create([
                 'empresa_id' => $request->empresa_id,
@@ -134,8 +150,8 @@ class EstadoFinancieroController extends Controller
                 'tipo' => $request->tipo,
             ]);
 
-            // Crear los detalles
-            foreach ($request->detalles as $detalle) {
+            // Crear los detalles (incluye cuentas base + calculadas)
+            foreach ($detallesConCalculadas as $detalle) {
                 DetalleEstado::create([
                     'estado_id' => $estado->id,
                     'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
@@ -156,10 +172,23 @@ class EstadoFinancieroController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Log del error para debugging
+            \Log::error('Error al crear estado financiero', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error al crear el estado financiero',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'debug' => [
+                    'line' => $e->getLine(),
+                    'file' => basename($e->getFile())
+                ]
             ], 500);
         }
     }
@@ -193,8 +222,19 @@ class EstadoFinancieroController extends Controller
                 // Eliminar detalles existentes
                 DetalleEstado::where('estado_id', $estado->id)->delete();
 
-                // Crear nuevos detalles
-                foreach ($request->detalles as $detalle) {
+                // Obtener todas las cuentas del catálogo de esta empresa
+                $catalogoCompleto = CatalogoCuenta::where('empresa_id', $estado->empresa_id)
+                    ->get()
+                    ->keyBy('id');
+
+                // Calcular cuentas agregadas (padres)
+                $detallesConCalculadas = $this->calcularCuentasAgregadas(
+                    $request->detalles, 
+                    $catalogoCompleto
+                );
+
+                // Crear nuevos detalles (incluye cuentas base + calculadas)
+                foreach ($detallesConCalculadas as $detalle) {
                     DetalleEstado::create([
                         'estado_id' => $estado->id,
                         'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
@@ -298,7 +338,9 @@ class EstadoFinancieroController extends Controller
             ];
 
             // Generar el CSV con agrupación
-            $csvContent = "Codigo,Nombre de Cuenta,Monto\n";
+            // Agregar BOM UTF-8 para que Excel detecte correctamente las tildes
+            $csvContent = "\xEF\xBB\xBF"; // BOM UTF-8
+            $csvContent .= "Codigo,Nombre de Cuenta,Monto\n";
             
             $categoriaActual = null;
             foreach ($cuentas as $cuenta) {
@@ -416,5 +458,336 @@ class EstadoFinancieroController extends Controller
     {
         $roles = $user->roles->pluck('name')->toArray();
         return in_array('Analista Financiero', $roles) && !in_array('Administrador', $roles);
+    }
+
+    /**
+     * Calcular cuentas agregadas (padres) basándose en las cuentas hijas
+     * Ejemplo: 1.1 = suma de todas las cuentas 1.1.XX
+     *          1 = suma de todas las cuentas 1.X.XX
+     * 
+     * Para Estados de Resultados también calcula:
+     * - Utilidad Bruta (Ingresos - Costos)
+     * - Utilidad Operacional (Utilidad Bruta - Gastos Operacionales)
+     * - Utilidad Antes de Impuestos (Utilidad Operacional + Otros Resultados)
+     * - Utilidad Neta (Utilidad Antes de Impuestos - Impuestos)
+     */
+    private function calcularCuentasAgregadas($detallesBase, $catalogoCompleto)
+    {
+        // Crear mapa de IDs a códigos para trabajar más fácil
+        $idACodigo = [];
+        $codigoAId = [];
+        $codigoACuenta = [];
+        foreach ($catalogoCompleto as $cuenta) {
+            $idACodigo[$cuenta->id] = $cuenta->codigo;
+            $codigoAId[$cuenta->codigo] = $cuenta->id;
+            $codigoACuenta[$cuenta->codigo] = $cuenta;
+        }
+
+        // Convertir detalles base a formato código => monto
+        $montoPorCodigo = [];
+        foreach ($detallesBase as $detalle) {
+            $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
+            if ($codigo) {
+                $montoPorCodigo[$codigo] = $detalle['monto'];
+            }
+        }
+
+        // Función para obtener todos los códigos padre de un código
+        $obtenerCodigosPadre = function($codigo) {
+            $padres = [];
+            $partes = explode('.', $codigo);
+            
+            // Generar códigos padre: "1.1.01" -> ["1.1", "1"]
+            for ($i = count($partes) - 1; $i > 0; $i--) {
+                $codigoPadre = implode('.', array_slice($partes, 0, $i));
+                $padres[] = $codigoPadre;
+            }
+            
+            return $padres;
+        };
+
+        // Recopilar todos los códigos padre únicos que necesitamos calcular
+        $codigosPadreNecesarios = [];
+        foreach (array_keys($montoPorCodigo) as $codigo) {
+            $padres = $obtenerCodigosPadre($codigo);
+            foreach ($padres as $padre) {
+                // Solo agregar si la cuenta padre existe en el catálogo
+                if (isset($codigoAId[$padre])) {
+                    $codigosPadreNecesarios[$padre] = true;
+                }
+            }
+        }
+        $codigosPadreNecesarios = array_keys($codigosPadreNecesarios);
+
+        // Ordenar códigos padre por profundidad (más profundos primero)
+        usort($codigosPadreNecesarios, function($a, $b) {
+            $nivelA = substr_count($a, '.');
+            $nivelB = substr_count($b, '.');
+            return $nivelB - $nivelA; // Mayor nivel primero
+        });
+
+        // Calcular cada código padre
+        $montosCalculados = [];
+        
+        // Obtener empresa_id para crear cuentas si es necesario
+        $empresaId = $catalogoCompleto->first()->empresa_id ?? null;
+        
+        foreach ($codigosPadreNecesarios as $codigoPadre) {
+            $montoTotal = 0;
+            
+            // Sumar todos los montos de cuentas que son hijas directas
+            foreach ($montoPorCodigo as $codigo => $monto) {
+                if ($this->esHijaDirecta($codigo, $codigoPadre)) {
+                    $montoTotal += $monto;
+                }
+            }
+            
+            // Sumar montos ya calculados de padres intermedios
+            foreach ($montosCalculados as $codigoCalc => $montoCalc) {
+                if ($this->esHijaDirecta($codigoCalc, $codigoPadre)) {
+                    $montoTotal += $montoCalc;
+                }
+            }
+            
+            $montosCalculados[$codigoPadre] = $montoTotal;
+            
+            // Si la cuenta padre no existe en el catálogo, crearla automáticamente
+            if (!isset($codigoAId[$codigoPadre]) && $empresaId) {
+                $nombreCuenta = $this->obtenerNombreCuentaPorCodigo($codigoPadre);
+                $tipoCuenta = $this->obtenerTipoCuentaPorCodigo($codigoPadre);
+                $estadoFinanciero = $this->inferirEstadoFinancieroPorCodigo($codigoPadre);
+                
+                $nuevaCuenta = CatalogoCuenta::create([
+                    'empresa_id' => $empresaId,
+                    'codigo' => $codigoPadre,
+                    'nombre' => $nombreCuenta,
+                    'tipo' => $tipoCuenta,
+                    'es_calculada' => true,
+                    'estado_financiero' => $estadoFinanciero
+                ]);
+                
+                $codigoAId[$codigoPadre] = $nuevaCuenta->id;
+                $catalogoCompleto[$nuevaCuenta->id] = $nuevaCuenta;
+            }
+        }
+
+        // Calcular utilidades para Estados de Resultados
+        // Buscar si hay cuentas de tipo 4, 5, 6, 7 (Estado de Resultados)
+        $esEstadoResultados = false;
+        foreach ($montoPorCodigo as $codigo => $monto) {
+            $primerDigito = substr($codigo, 0, 1);
+            if (in_array($primerDigito, ['4', '5', '6', '7'])) {
+                $esEstadoResultados = true;
+                break;
+            }
+        }
+
+        if ($esEstadoResultados) {
+            // Obtener totales de cada categoría (usar calculados si existen, sino calcular)
+            $totalIngresos = $montosCalculados['4'] ?? $this->calcularTotalPorDigito($montoPorCodigo, $montosCalculados, '4');
+            $totalCostos = $montosCalculados['5'] ?? $this->calcularTotalPorDigito($montoPorCodigo, $montosCalculados, '5');
+            $totalGastos = $montosCalculados['6'] ?? $this->calcularTotalPorDigito($montoPorCodigo, $montosCalculados, '6');
+            $totalOtros = $montosCalculados['7'] ?? $this->calcularTotalPorDigito($montoPorCodigo, $montosCalculados, '7');
+
+            // Calcular utilidades
+            $utilidadBruta = $totalIngresos - $totalCostos;
+            $utilidadOperacional = $utilidadBruta - $totalGastos;
+            $utilidadAntesImpuestos = $utilidadOperacional + $totalOtros;
+            
+            // Buscar si hay una cuenta específica para impuestos
+            $totalImpuestos = 0;
+            foreach ($montoPorCodigo as $codigo => $monto) {
+                $cuenta = $codigoACuenta[$codigo] ?? null;
+                if ($cuenta && stripos($cuenta->nombre, 'impuesto') !== false) {
+                    $totalImpuestos += $monto;
+                }
+            }
+            
+            $utilidadNetaCalculada = $utilidadAntesImpuestos - $totalImpuestos;
+
+            // Verificar si existe "Utilidad del Ejercicio" en el catálogo
+            $existeUtilidadEjercicio = false;
+            foreach ($catalogoCompleto as $cuenta) {
+                if (stripos($cuenta->nombre, 'utilidad') !== false && 
+                    stripos($cuenta->nombre, 'ejercicio') !== false) {
+                    $existeUtilidadEjercicio = true;
+                    break;
+                }
+            }
+
+            // Definir las cuentas de utilidades a crear/guardar
+            $utilidadesAGuardar = [
+                ['codigo' => '8.1', 'nombre' => 'Utilidad Bruta', 'monto' => $utilidadBruta, 'crear' => true],
+                ['codigo' => '8.2', 'nombre' => 'Utilidad Operacional', 'monto' => $utilidadOperacional, 'crear' => true],
+                ['codigo' => '8.3', 'nombre' => 'Utilidad Antes de Impuestos', 'monto' => $utilidadAntesImpuestos, 'crear' => true],
+            ];
+            
+            // Solo crear/guardar Utilidad Neta (8.4) si NO existe "Utilidad del Ejercicio" en el catálogo
+            // Si existe "Utilidad del Ejercicio", ya viene en la plantilla con su monto, no la calculamos
+            if (!$existeUtilidadEjercicio) {
+                $utilidadesAGuardar[] = ['codigo' => '8.4', 'nombre' => 'Utilidad Neta', 'monto' => $utilidadNetaCalculada, 'crear' => true];
+            }
+
+            // Obtener empresa_id de la primera cuenta del catálogo
+            $empresaId = $catalogoCompleto->first()->empresa_id ?? null;
+
+            foreach ($utilidadesAGuardar as $utilidad) {
+                $cuentaId = $codigoAId[$utilidad['codigo']] ?? null;
+                
+                // Si la cuenta no existe en el catálogo, crearla automáticamente
+                if (!$cuentaId && $empresaId && $utilidad['crear']) {
+                    $nuevaCuenta = CatalogoCuenta::create([
+                        'empresa_id' => $empresaId,
+                        'codigo' => $utilidad['codigo'],
+                        'nombre' => $utilidad['nombre'],
+                        'tipo' => 'INGRESO', // Las utilidades son técnicamente resultados
+                        'es_calculada' => true,
+                        'estado_financiero' => 'ESTADO_RESULTADOS'
+                    ]);
+                    
+                    $cuentaId = $nuevaCuenta->id;
+                    $codigoAId[$utilidad['codigo']] = $cuentaId;
+                    
+                    // Agregar al catálogo en memoria para futuras referencias
+                    $catalogoCompleto[$cuentaId] = $nuevaCuenta;
+                }
+                
+                if ($cuentaId) {
+                    $montosCalculados[$utilidad['codigo']] = $utilidad['monto'];
+                }
+            }
+        }
+
+        // Combinar detalles base con calculados
+        $todosLosDetalles = [];
+        
+        // Agregar SOLO detalles base que NO sean calculados (hojas del árbol)
+        foreach ($detallesBase as $detalle) {
+            $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
+            // Solo agregar si no es una cuenta calculada (no está en montosCalculados)
+            if ($codigo && !isset($montosCalculados[$codigo])) {
+                $todosLosDetalles[] = $detalle;
+            }
+        }
+        
+        // Agregar detalles calculados
+        foreach ($montosCalculados as $codigo => $monto) {
+            $cuentaId = $codigoAId[$codigo] ?? null;
+            if ($cuentaId) {
+                $todosLosDetalles[] = [
+                    'catalogo_cuenta_id' => $cuentaId,
+                    'monto' => $monto
+                ];
+            }
+        }
+
+        return $todosLosDetalles;
+    }
+
+    /**
+     * Calcular el total de todas las cuentas que empiezan con un dígito específico
+     */
+    private function calcularTotalPorDigito($montoPorCodigo, $montosCalculados, $digito)
+    {
+        $total = 0;
+        
+        // Sumar de montos base
+        foreach ($montoPorCodigo as $codigo => $monto) {
+            if (substr($codigo, 0, 1) === $digito) {
+                $total += $monto;
+            }
+        }
+        
+        // Sumar de montos calculados (excepto el total principal)
+        foreach ($montosCalculados as $codigo => $monto) {
+            if ($codigo !== $digito && substr($codigo, 0, 1) === $digito) {
+                $total += $monto;
+            }
+        }
+        
+        return $total;
+    }
+
+    /**
+     * Determinar si una cuenta es hija directa de otra
+     * Ejemplo: "1.1.01" es hija directa de "1.1" pero NO de "1"
+     *          "1.1" es hija directa de "1"
+     */
+    private function esHijaDirecta($codigoHijo, $codigoPadre)
+    {
+        // El hijo debe empezar con el código del padre seguido de un punto
+        if (!str_starts_with($codigoHijo, $codigoPadre . '.')) {
+            return false;
+        }
+        
+        // Verificar que sea hija directa (no nieta)
+        $resto = substr($codigoHijo, strlen($codigoPadre) + 1);
+        $niveles = explode('.', $resto);
+        
+        // Si solo hay un nivel después del padre, es hija directa
+        return count($niveles) === 1;
+    }
+
+    /**
+     * Obtener nombre genérico para una cuenta según su código
+     */
+    private function obtenerNombreCuentaPorCodigo($codigo)
+    {
+        $mapeo = [
+            '1' => 'ACTIVO',
+            '1.1' => 'ACTIVO CORRIENTE',
+            '1.2' => 'ACTIVO NO CORRIENTE',
+            '2' => 'PASIVO',
+            '2.1' => 'PASIVO CORRIENTE',
+            '2.2' => 'PASIVO NO CORRIENTE',
+            '3' => 'PATRIMONIO',
+            '4' => 'INGRESOS',
+            '5' => 'COSTOS DE VENTAS',
+            '6' => 'GASTOS OPERACIONALES',
+            '7' => 'OTROS RESULTADOS',
+        ];
+        
+        return $mapeo[$codigo] ?? "Cuenta Agregada {$codigo}";
+    }
+
+    /**
+     * Obtener tipo de cuenta según su código
+     */
+    private function obtenerTipoCuentaPorCodigo($codigo)
+    {
+        $primerDigito = substr($codigo, 0, 1);
+        
+        $mapeo = [
+            '1' => 'ACTIVO',
+            '2' => 'PASIVO',
+            '3' => 'PATRIMONIO',
+            '4' => 'INGRESO',
+            '5' => 'GASTO',
+            '6' => 'GASTO',
+            '7' => 'INGRESO',
+        ];
+        
+        return $mapeo[$primerDigito] ?? 'ACTIVO';
+    }
+
+    /**
+     * Inferir estado financiero basándose en el primer dígito del código
+     */
+    private function inferirEstadoFinancieroPorCodigo($codigo)
+    {
+        $primerDigito = substr($codigo, 0, 1);
+        
+        $mapeo = [
+            '1' => 'BALANCE_GENERAL',
+            '2' => 'BALANCE_GENERAL',
+            '3' => 'BALANCE_GENERAL',
+            '4' => 'ESTADO_RESULTADOS',
+            '5' => 'ESTADO_RESULTADOS',
+            '6' => 'ESTADO_RESULTADOS',
+            '7' => 'ESTADO_RESULTADOS',
+            '8' => 'ESTADO_RESULTADOS',
+        ];
+        
+        return $mapeo[$primerDigito] ?? 'NINGUNO';
     }
 }
