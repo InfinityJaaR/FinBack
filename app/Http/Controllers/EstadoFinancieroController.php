@@ -89,6 +89,7 @@ class EstadoFinancieroController extends Controller
             'detalles' => 'required|array|min:1',
             'detalles.*.catalogo_cuenta_id' => 'required|exists:catalogo_cuentas,id',
             'detalles.*.monto' => 'required|numeric',
+            'detalles.*.usar_en_ratios' => 'sometimes|boolean',
         ], [
             'empresa_id.required' => 'El ID de la empresa es obligatorio',
             'empresa_id.exists' => 'La empresa especificada no existe',
@@ -156,6 +157,7 @@ class EstadoFinancieroController extends Controller
                     'estado_id' => $estado->id,
                     'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
                     'monto' => $detalle['monto'],
+                    'usar_en_ratios' => $detalle['usar_en_ratios'] ?? false,
                 ]);
             }
 
@@ -202,6 +204,7 @@ class EstadoFinancieroController extends Controller
             'detalles' => 'sometimes|array|min:1',
             'detalles.*.catalogo_cuenta_id' => 'required|exists:catalogo_cuentas,id',
             'detalles.*.monto' => 'required|numeric',
+            'detalles.*.usar_en_ratios' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -239,6 +242,7 @@ class EstadoFinancieroController extends Controller
                         'estado_id' => $estado->id,
                         'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
                         'monto' => $detalle['monto'],
+                        'usar_en_ratios' => $detalle['usar_en_ratios'] ?? false,
                     ]);
                 }
             }
@@ -670,13 +674,14 @@ class EstadoFinancieroController extends Controller
             }
         }
         
-        // Agregar detalles calculados
+        // Agregar detalles calculados (sin usar_en_ratios, default false en BD)
         foreach ($montosCalculados as $codigo => $monto) {
             $cuentaId = $codigoAId[$codigo] ?? null;
             if ($cuentaId) {
                 $todosLosDetalles[] = [
                     'catalogo_cuenta_id' => $cuentaId,
-                    'monto' => $monto
+                    'monto' => $monto,
+                    'usar_en_ratios' => false, // Cuentas calculadas no se usan en ratios por defecto
                 ];
             }
         }
