@@ -304,4 +304,10 @@ class EmpresaController extends Controller
             ], 500);
         }
     }
+
+        public function porRubro(\App\Models\Rubro $rubro)
+    {
+        return $rubro->empresas()->get(['id','nombre']);
+    }
+
 }

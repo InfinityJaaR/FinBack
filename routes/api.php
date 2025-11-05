@@ -67,6 +67,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
         });
 
+        Route::middleware(['auth:sanctum','role:Administrador','permiso:ver_ratios'])->group(function () {
+        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
+        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
+        });
+
+
 
             // Ver ratios (permiso ver_ratios)
         Route::middleware(['permiso:ver_ratios'])->group(function () {
