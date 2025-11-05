@@ -24,14 +24,15 @@ class DatabaseSeeder extends Seeder
             
             // Maestros Base
             RubroSeeder::class,
-            ConceptoFinancieroSeeder::class, // CLAVE: Necesario antes de RatioDefinicion
+            ConceptosFinancierosSeeder::class, // CLAVE: Necesario antes de RatioDefinicion
             
             // 2. MAESTROS DE NIVEL 1 (Datos dependientes y definiciones)
             // Depende de Rubro
             EmpresaSeeder::class, 
             
             // Depende de ConceptoFinanciero
-            RatioDefinicionSeeder::class,
+            // Usamos la versión plural/centralizada `RatioDefinicionesSeeder`
+            RatioDefinicionesSeeder::class,
             
             // Maestros de datos contables
             PeriodoSeeder::class, 
@@ -45,7 +46,8 @@ class DatabaseSeeder extends Seeder
             EstadosYDetallesSeeder::class, 
             
             // Componentes que usan las definiciones y los conceptos.
-            RatioComponentesSeeder::class,
+            // NOTE: `RatioComponentesSeeder` fue movido a deprecated — los componentes
+            // de ratios se sincronizan ahora desde `RatioDefinicionesSeeder`.
         ]);
     }
 }

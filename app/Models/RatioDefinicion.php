@@ -24,15 +24,17 @@ class RatioDefinicion extends Model
         'codigo',
         'nombre',
         'formula',
-        'sentido',
         'categoria',
-        'multiplicador',
-        'is_protected',
+        // multiplicadores opcionales (nullable). Podemos migrar valores aquí más tarde si se desea.
+        'multiplicador_numerador',
+        'multiplicador_denominador',
+        'multiplicador_resultado',
     ];
 
     protected $casts = [
-        'multiplicador' => 'float',
-        'is_protected' => 'boolean',
+        'multiplicador_numerador' => 'float',
+        'multiplicador_denominador' => 'float',
+        'multiplicador_resultado' => 'float',
     ];
 
     // ... (rest of fillable, casts, etc.)
@@ -60,9 +62,10 @@ class RatioDefinicion extends Model
     public function componentes(): BelongsToMany
     {
         // Se usa la tabla pivote 'ratio_componentes'
-        return $this->belongsToMany(ConceptoFinanciero::class, 'ratio_componentes', 'ratio_id', 'concepto_id')
-                    ->withPivot('rol', 'orden', 'requiere_promedio', 'sentido') // Incluye los campos extra de la tabla pivote
-                    ->using(RatioComponente::class)
-                    ->orderBy('ratio_componentes.orden');
+    return $this->belongsToMany(ConceptoFinanciero::class, 'ratio_componentes', 'ratio_id', 'concepto_id')
+            ->withPivot('rol', 'orden', 'requiere_promedio', 'operacion', 'factor') // Incluye los campos extra de la tabla pivote
+            ->using(RatioComponente::class)
+            ->withTimestamps()
+            ->orderBy('ratio_componentes.orden');
     }
 }

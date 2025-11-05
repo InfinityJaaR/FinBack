@@ -14,6 +14,7 @@ class ConceptoFinanciero extends Model
     protected $fillable = [
         'nombre_concepto',
         'descripcion',
+        'codigo',
     ];
 
     /**
@@ -21,8 +22,8 @@ class ConceptoFinanciero extends Model
      */
     public function ratios(): BelongsToMany
     {
-        return $this->belongsToMany(RatioDefinicion::class, 'ratio_componentes', 'concepto_id', 'ratio_id')
-                    ->withPivot('rol', 'orden', 'requiere_promedio', 'sentido');
+    return $this->belongsToMany(RatioDefinicion::class, 'ratio_componentes', 'concepto_id', 'ratio_id')
+            ->withPivot('rol', 'orden', 'requiere_promedio', 'operacion', 'factor');
     }
 
     /**

@@ -82,7 +82,8 @@ class RatioDefinicionController extends Controller
                         'rol' => $item['rol'],
                         'orden' => $item['orden'],
                         'requiere_promedio' => $item['requiere_promedio'] ?? false,
-                        'sentido' => $item['sentido'] ?? 1,
+                        'operacion' => $item['operacion'] ?? 'ADD',
+                        'factor' => $item['factor'] ?? null,
                     ]
                 ];
             })->toArray();
@@ -155,7 +156,8 @@ class RatioDefinicionController extends Controller
                         'rol' => $item['rol'],
                         'orden' => $item['orden'],
                         'requiere_promedio' => $item['requiere_promedio'] ?? false,
-                        'sentido' => $item['sentido'] ?? 1,
+                        'operacion' => $item['operacion'] ?? 'ADD',
+                        'factor' => $item['factor'] ?? null,
                     ]
                 ];
             })->toArray();
@@ -237,44 +239,90 @@ class RatioDefinicionController extends Controller
         // Calcular según componentes ordenados
         $components = $ratioDefinicion->componentes()->orderBy('ratio_componentes.orden')->get();
 
-        $num = 0.0;
-        $den = 0.0;
-        $op = 0.0;
-        $tieneDen = false;
+        $groups = $components->groupBy(fn($c) => $c->pivot->rol ?? 'OPERANDO');
+
         $breakdown = [];
 
-        foreach ($components as $c) {
-            $conceptoId = $c->id;
-            $monto = (float)($montosPorConcepto[$conceptoId] ?? 0);
-            $signo = (int)($c->pivot->sentido ?? 1);
-            $rol = $c->pivot->rol ?? null;
+        $computeGroup = function ($items) use ($montosPorConcepto, &$breakdown) {
+            // items: collection of ConceptoFinanciero with pivot
+            $acc = null;
+            foreach ($items->sortBy('pivot.orden') as $c) {
+                $conceptoId = $c->id;
+                $monto = (float)($montosPorConcepto[$conceptoId] ?? 0);
 
-            $contrib = $signo * $monto;
-            if ($rol === 'NUMERADOR') {
-                $num += $contrib;
-            } elseif ($rol === 'DENOMINADOR') {
-                $den += $contrib;
-                $tieneDen = true;
-            } else {
-                $op += $contrib;
+                // Aplicar factor por componente si existe
+                $factor = $c->pivot->factor ?? null;
+                $valorComp = $monto;
+                if (! is_null($factor)) {
+                    $valorComp = $valorComp * (float)$factor;
+                }
+
+                $oper = strtoupper($c->pivot->operacion ?? 'ADD');
+
+                // Reducir según la operación
+                if (is_null($acc)) {
+                    // Inicializar accumulator según la primera operación
+                    if ($oper === 'SUB') {
+                        $acc = -$valorComp;
+                    } else {
+                        $acc = $valorComp;
+                    }
+                } else {
+                    switch ($oper) {
+                        case 'ADD':
+                            $acc += $valorComp;
+                            break;
+                        case 'SUB':
+                            $acc -= $valorComp;
+                            break;
+                        case 'MUL':
+                            $acc *= $valorComp;
+                            break;
+                        case 'DIV':
+                            $acc = (abs($valorComp) < 1e-9) ? null : ($acc / $valorComp);
+                            break;
+                        default:
+                            $acc += $valorComp;
+                    }
+                }
+
+                $breakdown[] = [
+                    'concepto_id' => $conceptoId,
+                    'concepto' => $c->nombre_concepto,
+                    'rol' => $c->pivot->rol ?? null,
+                    'monto' => $monto,
+                    'operacion' => $oper,
+                    'factor' => $factor,
+                    'contribucion' => $valorComp,
+                ];
             }
 
-            $breakdown[] = [
-                'concepto_id' => $conceptoId,
-                'concepto' => $c->nombre_concepto,
-                'rol' => $rol,
-                'monto' => $monto,
-                'signo' => $signo,
-                'contribucion' => $contrib,
-            ];
+            return $acc ?? 0.0;
+        };
+
+        // Numerador
+        $num = $computeGroup($groups->get('NUMERADOR', collect()));
+        // Denominador
+        $den = $computeGroup($groups->get('DENOMINADOR', collect()));
+        // Operandos/otros
+        $op = $computeGroup($groups->get('OPERANDO', collect()));
+
+        // Aplicar multiplicadores por bloque si existen
+        if (! is_null($ratioDefinicion->multiplicador_numerador)) {
+            $num = $num * (float)$ratioDefinicion->multiplicador_numerador;
+        }
+        if (! is_null($ratioDefinicion->multiplicador_denominador)) {
+            $den = $den * (float)$ratioDefinicion->multiplicador_denominador;
         }
 
-        if (! $tieneDen) $den = 1.0;
-        $valor = (abs($den) < 1e-9) ? null : ($num + $op) / $den;
-
-        // aplicar multiplicador
-        if (! is_null($valor)) {
-            $valor = $valor * ($ratioDefinicion->multiplicador ?? 1.0);
+        if (abs($den) < 1e-9) {
+            $valor = null;
+        } else {
+            $valor = ($num + $op) / $den;
+            // aplicar multiplicador_resultado
+            if (! is_null($ratioDefinicion->multiplicador_resultado)) {
+                $valor = $valor * (float)$ratioDefinicion->multiplicador_resultado;
+            }
         }
 
         return response()->json([
@@ -285,8 +333,9 @@ class RatioDefinicionController extends Controller
                 'codigo' => $ratioDefinicion->codigo,
                 'nombre' => $ratioDefinicion->nombre,
                 'categoria' => $ratioDefinicion->categoria,
-                'multiplicador' => $ratioDefinicion->multiplicador,
-                'is_protected' => $ratioDefinicion->is_protected,
+                'multiplicador_numerador' => $ratioDefinicion->multiplicador_numerador,
+                'multiplicador_denominador' => $ratioDefinicion->multiplicador_denominador,
+                'multiplicador_resultado' => $ratioDefinicion->multiplicador_resultado,
             ],
             'breakdown' => $breakdown,
             'num' => round($num, 6),

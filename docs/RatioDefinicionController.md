@@ -78,7 +78,7 @@ Campos del objeto principal `ratios_definiciones`:
 - formula: string required
 - sentido: string required in ["MAYOR_MEJOR","MENOR_MEJOR","CERCANO_A_1"]
 - categoria: string required in ["LIQUIDEZ","ENDEUDAMIENTO","RENTABILIDAD","EFICIENCIA","COBERTURA"]
-- multiplicador: number optional (factor por el que se multiplica el resultado final, default 1.0)
+- multiplicador_resultado: number optional (factor por el que se multiplica el resultado final, default 1.0). También existen `multiplicador_numerador` y `multiplicador_denominador` para controlar bloques.
 - is_protected: boolean optional (si true, solo administradores pueden editar/eliminar esta definición)
 
 Campos del array `componentes` (requerido, array mínimo 2 elementos):
@@ -86,7 +86,7 @@ Campos del array `componentes` (requerido, array mínimo 2 elementos):
 - componentes.*.rol: required, string, in ["NUMERADOR","DENOMINADOR","OPERANDO"]
 - componentes.*.orden: required, integer, min:1
 - componentes.*.requiere_promedio: required, boolean
-- componentes.*.sentido: required, integer, in [1, -1] (1 para contribución positiva, -1 para contribución negativa)
+- componentes.*.operacion: required, string, in ["ADD", "SUB", "MUL", "DIV"] (operación aritmética que aplica este componente dentro del bloque). Opcionalmente se puede enviar `factor` (number) para escalar el componente.
 
 Mensajes claves de validación (resumen):
 - `codigo.unique` -> mensaje amigable si hay duplicado
@@ -105,8 +105,8 @@ JSON de ejemplo para crear una definición con 2 componentes:
   "sentido": "MAYOR_MEJOR",
   "categoria": "RENTABILIDAD",
   "componentes": [
-    { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false, "sentido": 1 },
-    { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": true, "sentido": 1 }
+    { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false, "operacion": "ADD", "factor": 1.0 },
+    { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": true, "operacion": "ADD", "factor": 1.0 }
   ]
 }
 

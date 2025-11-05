@@ -27,7 +27,7 @@ Campos del objeto principal (form-level)
 - sentido (string) — requerido. Uno de: `MAYOR_MEJOR`, `MENOR_MEJOR`, `CERCANO_A_1`.
 - categoria (string) — requerido. Valores permitidos (obtener con GET /api/ratios/categorias):
   - `LIQUIDEZ`, `ENDEUDAMIENTO`, `RENTABILIDAD`, `EFICIENCIA`, `COBERTURA`.
-- multiplicador (number) — opcional. Factor que se aplicará al resultado final (por ejemplo 100 para presentar en %).
+-- multiplicador_resultado (number) — opcional. Factor que se aplicará al resultado final (por ejemplo 100 para presentar en %). Alternativamente puedes especificar `multiplicador_numerador` o `multiplicador_denominador` para escalar bloques específicos.
 - is_protected (boolean) — opcional. Si `true`, solo administradores podrán editar/eliminar esta definición en el futuro.
 
 Campos del array `componentes` (cada fila representa un componente de la fórmula)
@@ -36,7 +36,8 @@ Campos del array `componentes` (cada fila representa un componente de la fórmul
   - componentes[].rol (string) — requerido; uno de: `NUMERADOR`, `DENOMINADOR`, `OPERANDO`.
   - componentes[].orden (integer) — requerido; posición en la fórmula (1..N). En la práctica: numerador elementos suelen orden 1..n, denominador orden 1.
   - componentes[].requiere_promedio (boolean) — requerido; si `true`, se promedia con el periodo anterior cuando exista.
-  - componentes[].sentido (integer) — requerido; 1 (contribución positiva) o -1 (contribución negativa).
+  - componentes[].operacion (string) — requerido; una de: `ADD`, `SUB`, `MUL`, `DIV`. Indica cómo se combina este componente dentro del bloque (p. ej. `SUB` para restar inventario del numerador).
+  - componentes[].factor (number) — opcional; factor multiplicador aplicado a este componente (por defecto 1.0).
 
 Ejemplo de payload JSON (crear)
 --------------------------------
@@ -46,12 +47,12 @@ Ejemplo de payload JSON (crear)
   "formula": "(Activo Corriente - Inventario) / Pasivo Corriente",
   "sentido": "MAYOR_MEJOR",
   "categoria": "LIQUIDEZ",
-  "multiplicador": 1.0,
+  "multiplicador_resultado": 1.0,
   "is_protected": true,
   "componentes": [
-    { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false, "sentido": 1 },
-    { "concepto_id": 5, "rol": "OPERANDO", "orden": 2, "requiere_promedio": false, "sentido": -1 },
-    { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": false, "sentido": 1 }
+  { "concepto_id": 1, "rol": "NUMERADOR", "orden": 1, "requiere_promedio": false, "operacion": "ADD", "factor": 1.0 },
+  { "concepto_id": 5, "rol": "OPERANDO", "orden": 2, "requiere_promedio": false, "operacion": "SUB", "factor": 1.0 },
+  { "concepto_id": 2, "rol": "DENOMINADOR", "orden": 1, "requiere_promedio": false, "operacion": "ADD", "factor": 1.0 }
   ]
 }
 
@@ -61,8 +62,8 @@ Notas de UX y validaciones en cliente
 - Validaciones cliente (antes de POST):
   - `codigo`, `nombre`, `formula`, `sentido`, `categoria` obligatorios.
   - `componentes` debe tener >= 2 elementos.
-  - Cada componente debe tener `concepto_id`, `rol`, `orden`, `requiere_promedio` y `sentido`.
-  - Enviar `multiplicador` si el usuario lo proporciona (convertir a number).
+  - Cada componente debe tener `concepto_id`, `rol`, `orden`, `requiere_promedio` y `operacion`.
+  - Enviar `multiplicador_resultado` si el usuario lo proporciona (convertir a number). También se aceptan `multiplicador_numerador` y `multiplicador_denominador`.
 - Orden de componentes: el frontend puede permitir mover filas para ajustar `orden`; al enviar el formulario, mapear la posición visual a `orden` numérico.
 
 Mensajes de error esperados desde backend (manejarlos en UI)
@@ -75,7 +76,7 @@ Mensajes de error esperados desde backend (manejarlos en UI)
 Comportamiento especial
 ------------------------
 - `is_protected`: si el formulario se envía con `is_protected: true`, el backend marcará la definición como protegida; solo admins podrán editar o borrar después. El frontend debe mostrar un aviso (tooltip) explicando la restricción.
-- `multiplicador`: comúnmente se usa para escalar resultados (ej. multiplicar por 100 para %). Mostrar ayuda contextual.
+-- `multiplicador_resultado`: comúnmente se usa para escalar resultados (ej. multiplicar por 100 para %). Mostrar ayuda contextual.
 - `formula` es texto descriptivo; el cálculo real se basa en los `componentes` y en los mappings `cuenta_concepto`.
 
 Checklist antes de enviar al backend

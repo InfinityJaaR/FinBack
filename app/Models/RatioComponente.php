@@ -15,15 +15,20 @@ class RatioComponente extends Pivot
         'concepto_id',
         'rol',
         'orden',
-        'sentido',
+        'operacion',
+        'factor',
         'requiere_promedio',
     ];
 
     protected $casts = [
         'orden' => 'integer',
-        'sentido' => 'integer',
+        'operacion' => 'string',
+        'factor' => 'float',
         'requiere_promedio' => 'boolean',
     ];
+
+    // La tabla pivote tiene timestamps; permitir que Eloquent los gestione si corresponde
+    public $timestamps = true;
 
     // Definición de las relaciones BelongsTo
     public function ratioDefinicion(): BelongsTo

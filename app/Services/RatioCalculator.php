@@ -21,73 +21,94 @@ class RatioCalculator
      */
     public function calculateRatio(RatioDefinicion $ratioDefinicion, Empresa $empresa, Periodo $periodo): float
     {
-        // El método componentes() en RatioDefinicion ahora tiene withPivot('rol', 'orden', 'requiere_promedio')
+        // Recuperar componentes con su pivot (operacion, factor, requiere_promedio, rol, orden)
         $componentes = $ratioDefinicion->componentes()->get();
 
         if ($componentes->isEmpty()) {
             throw new Exception("El ratio '{$ratioDefinicion->nombre}' no tiene componentes definidos.");
         }
 
-        $terminos_numerador = [];
-        $valor_denominador = null;
+        // Agrupar por rol: NUMERADOR, DENOMINADOR, OPERANDO
+        $groups = $componentes->groupBy(fn($c) => $c->pivot->rol ?? 'OPERANDO');
 
-        // 1. Obtener y agregar los valores de los conceptos financieros
-        foreach ($componentes as $componente) {
-            // El objeto $componente ya es una instancia de ConceptoFinanciero; tomarla directamente
-            $concepto = $componente; // Instancia de ConceptoFinanciero
-            $rol = $componente->pivot->rol;
-            $requierePromedio = $componente->pivot->requiere_promedio; // NUEVO CAMPO
+        $computeGroup = function ($items) use ($empresa, $periodo) {
+            // items: collection de ConceptoFinanciero con pivot
+            $acc = null;
+            foreach ($items->sortBy('pivot.orden') as $c) {
+                $concepto = $c; // ConceptoFinanciero
+                $requierePromedio = (bool)($c->pivot->requiere_promedio ?? false);
 
-            // Llama al método auxiliar que maneja la lógica condicional de promedio
-            $valor_concepto = $this->getConceptoValorCondicional(
-                $concepto, 
-                $empresa->id, 
-                $periodo, 
-                (bool) $requierePromedio // Casteamos a booleano
-            );
+                // Obtener el valor del concepto (aplica promedio si corresponde)
+                $valor_concepto = $this->getConceptoValorCondicional($concepto, $empresa->id, $periodo, $requierePromedio);
 
-            // 2. Clasificar valores según su rol en la fórmula
-            if ($rol === 'NUMERADOR' || $rol === 'OPERANDO') {
-                $terminos_numerador[] = [
-                    'valor' => $valor_concepto,
-                    'rol' => $rol 
-                ];
-            } elseif ($rol === 'DENOMINADOR') {
-                // Solo debería haber un denominador principal por ratio
-                $valor_denominador = $valor_concepto;
+                // Aplicar factor por componente si existe
+                $factor = $c->pivot->factor ?? null;
+                $valorComp = $valor_concepto;
+                if (! is_null($factor)) {
+                    $valorComp = $valorComp * (float)$factor;
+                }
+
+                $oper = strtoupper($c->pivot->operacion ?? 'ADD');
+
+                if (is_null($acc)) {
+                    // Inicializar accumulator con el primer valor (considerando operacion)
+                    if ($oper === 'SUB') {
+                        $acc = -$valorComp;
+                    } else {
+                        $acc = $valorComp;
+                    }
+                } else {
+                    switch ($oper) {
+                        case 'ADD':
+                            $acc += $valorComp;
+                            break;
+                        case 'SUB':
+                            $acc -= $valorComp;
+                            break;
+                        case 'MUL':
+                            $acc *= $valorComp;
+                            break;
+                        case 'DIV':
+                            if (abs($valorComp) < 1e-9) {
+                                throw new Exception('División por cero en componente para concepto ' . $concepto->id);
+                            }
+                            $acc = $acc / $valorComp;
+                            break;
+                        default:
+                            $acc += $valorComp;
+                    }
+                }
             }
+
+            return $acc ?? 0.0;
+        };
+
+        // Calculamos numerador, denominador y operando
+        $numerador = $computeGroup($groups->get('NUMERADOR', collect()));
+        $denominador = $computeGroup($groups->get('DENOMINADOR', collect()));
+        $operando = $computeGroup($groups->get('OPERANDO', collect()));
+
+        // Aplicar multiplicadores por bloque si existen
+        if (! is_null($ratioDefinicion->multiplicador_numerador)) {
+            $numerador = $numerador * (float)$ratioDefinicion->multiplicador_numerador;
         }
-        
-        // 3. Construir el Numerador final
-        if (empty($terminos_numerador)) {
-            throw new Exception("El numerador del ratio '{$ratioDefinicion->nombre}' no pudo ser calculado.");
+        if (! is_null($ratioDefinicion->multiplicador_denominador)) {
+            $denominador = $denominador * (float)$ratioDefinicion->multiplicador_denominador;
         }
 
-        // El primer elemento es el valor base del numerador (se asume que es suma)
-        $numerador = $terminos_numerador[0]['valor'];
-        
-        // Ejecutar las operaciones subsiguientes (resta, suma)
-        for ($i = 1; $i < count($terminos_numerador); $i++) {
-            $termino = $terminos_numerador[$i];
-            if ($termino['rol'] === 'OPERANDO') {
-                $numerador -= $termino['valor']; // Asumimos OPERANDO siempre resta (ej: Inventario en Prueba Ácida)
-            } else {
-                $numerador += $termino['valor']; 
-            }
-        }
-
-        // 4. Ejecutar la Fórmula Final (División)        
-        // Si no hay denominador definido, asumimos 1.0 (para ratios como Capital de Trabajo)
-        if ($valor_denominador === null) {
-            $valor_denominador = 1.0;
-        }
-
-        if ($valor_denominador === 0.0) {
+        // Si no hay denominador definido, asumimos 1.0
+        if (abs($denominador) < 1e-9) {
             throw new Exception("División por cero: El denominador del ratio '{$ratioDefinicion->nombre}' es cero o no tiene valor.");
         }
 
-        // Retorna el resultado del cálculo
-        return $numerador / $valor_denominador;
+        $valor = ($numerador + $operando) / $denominador;
+
+        // aplicar multiplicador_resultado si existe
+        if (! is_null($ratioDefinicion->multiplicador_resultado)) {
+            $valor = $valor * (float)$ratioDefinicion->multiplicador_resultado;
+        }
+
+        return $valor;
 
     }
     
