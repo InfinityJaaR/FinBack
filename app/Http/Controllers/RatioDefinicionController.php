@@ -63,6 +63,21 @@ class RatioDefinicionController extends Controller
     }
 
     /**
+     * Devuelve la lista de categorías permitidas para clasificar ratios.
+     * Ruta pública: GET /api/ratios/categorias
+     */
+    public function categorias(): JsonResponse
+    {
+        // Mantener aquí el mismo conjunto que validan las Requests (Store/Update)
+        $categorias = ['LIQUIDEZ', 'ENDEUDAMIENTO', 'RENTABILIDAD', 'EFICIENCIA', 'COBERTURA'];
+
+        return response()->json([
+            'success' => true,
+            'categorias' => $categorias
+        ]);
+    }
+
+    /**
      * Almacena un recurso recién creado en la base de datos, incluyendo sus componentes.
      */
     public function store(StoreRatioDefinicionRequest $request): JsonResponse
