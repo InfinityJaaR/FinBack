@@ -70,6 +70,8 @@ class RatioDefinicionesSeeder extends Seeder
         ];
 
         foreach ($definitions as $def) {
+            // Guardamos la definición principal. La columna nueva es
+            // `multiplicador_resultado` (migrada desde `multiplicador`).
             $ratio = RatioDefinicion::updateOrCreate(
                 ['codigo' => $def['codigo']],
                 [
@@ -77,12 +79,14 @@ class RatioDefinicionesSeeder extends Seeder
                     'formula' => $def['formula'],
                     'sentido' => $def['sentido'],
                     'categoria' => $def['categoria'],
-                    'multiplicador' => $def['multiplicador'] ?? 1.0,
+                    'multiplicador_resultado' => $def['multiplicador'] ?? 1.0,
                     'is_protected' => $def['is_protected'] ?? false,
                 ]
             );
 
-            // Build componentes sync payload keyed by concepto_id
+            // Build componentes sync payload keyed by concepto_id.
+            // Convertimos el viejo `sentido` numérico a `operacion` textual
+            // (1 => ADD, -1 => SUB). Añadimos `factor` por defecto 1.0.
             $componentesData = [];
             foreach ($def['componentes'] as $c) {
                 $concepto = ConceptoFinanciero::where('codigo', $c['concepto_codigo'])->first();
@@ -90,11 +94,24 @@ class RatioDefinicionesSeeder extends Seeder
                     $this->command->warn("Concepto con codigo {$c['concepto_codigo']} no encontrado, saltando componente.");
                     continue;
                 }
+
+                // Mapear sentido numérico a operación textual
+                $operacion = null;
+                if (isset($c['sentido'])) {
+                    if ($c['sentido'] === 1) $operacion = 'ADD';
+                    elseif ($c['sentido'] === -1) $operacion = 'SUB';
+                }
+                // Si no hay mapping, por seguridad asumimos ADD para NUMERADOR/DENOMINADOR
+                if (! $operacion) {
+                    $operacion = ($c['rol'] === 'OPERANDO' && ($c['sentido'] ?? 0) === -1) ? 'SUB' : 'ADD';
+                }
+
                 $componentesData[$concepto->id] = [
                     'rol' => $c['rol'],
                     'orden' => $c['orden'],
                     'requiere_promedio' => $c['requiere_promedio'],
-                    'sentido' => $c['sentido'],
+                    'operacion' => $operacion,
+                    'factor' => $c['factor'] ?? 1.0,
                 ];
             }
 
@@ -106,6 +123,6 @@ class RatioDefinicionesSeeder extends Seeder
             }
         }
 
-        $this->command->info('Definiciones de ratios sembradas/actualizadas.');
+        $this->command->info('Definiciones de ratios sembradas/actualizadas (plural, operacion/factor).');
     }
 }
