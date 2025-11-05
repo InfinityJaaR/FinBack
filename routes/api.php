@@ -9,6 +9,7 @@ use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\RatioDefinicionController;
 use App\Http\Controllers\CatalogoCuentaController;
 use App\Http\Controllers\PeriodoController;
+use App\Http\Controllers\EstadoFinancieroController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -68,6 +69,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // 5. ELIMINAR un rubro (Destroy)
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
         });
+
+        Route::middleware(['auth:sanctum','role:Administrador','permiso:ver_ratios'])->group(function () {
+        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
+        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
+        });
+
 
 
             // Ver ratios (permiso ver_ratios)
@@ -167,6 +174,36 @@ Route::middleware(['auth:sanctum'])->group(function () {
             
             // ELIMINAR una cuenta específica
             Route::delete('/catalogo-cuentas/{id}', [CatalogoCuentaController::class, 'destroy'])->name('catalogo.destroy');
+        });
+
+        // ----------------------------------------------------------------------
+        // GRUPO DE RUTAS: GESTIÓN DE ESTADOS FINANCIEROS
+        // Permiso requerido: 'gestionar_catalogo_cuentas' (puede usar el mismo o crear uno nuevo)
+        // ----------------------------------------------------------------------
+        Route::middleware('permiso:gestionar_catalogo_cuentas')->group(function () {
+            // OBTENER lista de empresas con catálogo
+            Route::get('/estados-financieros/empresas', [EstadoFinancieroController::class, 'obtenerEmpresas'])->name('estados.empresas');
+            
+            // OBTENER lista de periodos disponibles
+            Route::get('/estados-financieros/periodos', [EstadoFinancieroController::class, 'obtenerPeriodos'])->name('estados.periodos');
+            
+            // DESCARGAR plantilla CSV con cuentas según tipo de estado
+            Route::get('/estados-financieros/plantilla', [EstadoFinancieroController::class, 'descargarPlantilla'])->name('estados.plantilla');
+            
+            // LISTAR estados financieros (con filtros opcionales)
+            Route::get('/estados-financieros', [EstadoFinancieroController::class, 'index'])->name('estados.index');
+            
+            // OBTENER un estado financiero específico
+            Route::get('/estados-financieros/{id}', [EstadoFinancieroController::class, 'show'])->name('estados.show');
+            
+            // CREAR nuevo estado financiero
+            Route::post('/estados-financieros', [EstadoFinancieroController::class, 'store'])->name('estados.store');
+            
+            // ACTUALIZAR estado financiero
+            Route::put('/estados-financieros/{id}', [EstadoFinancieroController::class, 'update'])->name('estados.update');
+            
+            // ELIMINAR estado financiero
+            Route::delete('/estados-financieros/{id}', [EstadoFinancieroController::class, 'destroy'])->name('estados.destroy');
         });
     });
 

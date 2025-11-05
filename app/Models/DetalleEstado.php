@@ -14,10 +14,12 @@ class DetalleEstado extends Model
         'estado_id',
         'catalogo_cuenta_id',
         'monto',
+        'usar_en_ratios',
     ];
 
     protected $casts = [
         'monto' => 'decimal:2',
+        'usar_en_ratios' => 'boolean',
     ];
 
     /**

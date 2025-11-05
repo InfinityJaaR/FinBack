@@ -81,7 +81,11 @@ class CatalogoCuentaController extends Controller
                 'required',
                 Rule::in(['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'GASTO'])
             ],
-            'cuentas.*.es_calculada' => 'sometimes|boolean'
+            'cuentas.*.es_calculada' => 'sometimes|boolean',
+            'cuentas.*.estado_financiero' => [
+                'sometimes',
+                Rule::in(['BALANCE_GENERAL', 'ESTADO_RESULTADOS', 'NINGUNO'])
+            ]
         ], [
             'empresa_id.required' => 'El ID de la empresa es obligatorio',
             'empresa_id.exists' => 'La empresa especificada no existe',
@@ -91,7 +95,8 @@ class CatalogoCuentaController extends Controller
             'cuentas.*.nombre.required' => 'El nombre de la cuenta es obligatorio',
             'cuentas.*.nombre.max' => 'El nombre no puede exceder 150 caracteres',
             'cuentas.*.tipo.required' => 'El tipo de cuenta es obligatorio',
-            'cuentas.*.tipo.in' => 'El tipo debe ser: ACTIVO, PASIVO, PATRIMONIO, INGRESO o GASTO'
+            'cuentas.*.tipo.in' => 'El tipo debe ser: ACTIVO, PASIVO, PATRIMONIO, INGRESO o GASTO',
+            'cuentas.*.estado_financiero.in' => 'El estado financiero debe ser: BALANCE_GENERAL, ESTADO_RESULTADOS o NINGUNO'
         ]);
 
         if ($validator->fails()) {
@@ -136,18 +141,38 @@ class CatalogoCuentaController extends Controller
                 ], 422);
             }
 
+            // Verificar si hay cuentas con relaciones que impidan la eliminación
+            $cuentasConRelaciones = CatalogoCuenta::where('empresa_id', $empresaId)
+                ->whereHas('detallesEstado')
+                ->count();
+
+            if ($cuentasConRelaciones > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede reemplazar el catálogo porque existen estados financieros asociados. Elimine los estados financieros primero o edite las cuentas individualmente.'
+                ], 422);
+            }
+
             // Eliminar todas las cuentas existentes de esta empresa
             CatalogoCuenta::where('empresa_id', $empresaId)->delete();
 
             // Insertar las nuevas cuentas
             $cuentasCreadas = [];
             foreach ($cuentas as $cuenta) {
+                // Inferir estado financiero basado en el código (primer dígito)
+                $estadoFinanciero = $this->inferirEstadoFinancieroPorCodigo($cuenta['codigo']);
+                
+                // Determinar si es calculada basándose en el nivel de la cuenta
+                // Una cuenta es calculada si tiene subcuentas (su código es más corto o termina en 0)
+                $esCalculada = $this->esCuentaCalculada($cuenta['codigo'], $cuentas);
+                
                 $nuevaCuenta = CatalogoCuenta::create([
                     'empresa_id' => $empresaId,
                     'codigo' => $cuenta['codigo'],
                     'nombre' => $cuenta['nombre'],
                     'tipo' => $cuenta['tipo'],
-                    'es_calculada' => $cuenta['es_calculada'] ?? false
+                    'es_calculada' => $esCalculada,
+                    'estado_financiero' => $estadoFinanciero
                 ]);
                 $cuentasCreadas[] = $nuevaCuenta;
             }
@@ -186,7 +211,11 @@ class CatalogoCuentaController extends Controller
                 'required',
                 Rule::in(['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'GASTO'])
             ],
-            'es_calculada' => 'sometimes|boolean'
+            'es_calculada' => 'sometimes|boolean',
+            'estado_financiero' => [
+                'sometimes',
+                Rule::in(['BALANCE_GENERAL', 'ESTADO_RESULTADOS', 'NINGUNO'])
+            ]
         ]);
 
         if ($validator->fails()) {
@@ -366,5 +395,80 @@ class CatalogoCuentaController extends Controller
     {
         $roles = $user->roles->pluck('name')->toArray();
         return in_array('Analista Financiero', $roles) && !in_array('Administrador', $roles);
+    }
+
+    /**
+     * Inferir el estado financiero basado en el código de cuenta
+     * 1 - Activo     → Balance General
+     * 2 - Pasivo     → Balance General
+     * 3 - Patrimonio → Balance General
+     * 4 - Ingresos   → Estado de Resultados
+     * 5 - Costos     → Estado de Resultados
+     * 6 - Gastos     → Estado de Resultados
+     * 7 - Resultados → Estado de Resultados
+     */
+    private function inferirEstadoFinanciero($tipo)
+    {
+        $mapeo = [
+            'ACTIVO' => 'BALANCE_GENERAL',
+            'PASIVO' => 'BALANCE_GENERAL',
+            'PATRIMONIO' => 'BALANCE_GENERAL',
+            'INGRESO' => 'ESTADO_RESULTADOS',
+            'GASTO' => 'ESTADO_RESULTADOS',
+        ];
+        return $mapeo[$tipo] ?? 'NINGUNO';
+    }
+
+    /**
+     * Inferir estado financiero basándose en el primer dígito del código
+     * 1 - Activo → Balance General
+     * 2 - Pasivo → Balance General
+     * 3 - Patrimonio → Balance General
+     * 4 - Ingresos → Estado de Resultados
+     * 5 - Costos → Estado de Resultados
+     * 6 - Gastos → Estado de Resultados
+     * 7 - Otros/Resultados → Estado de Resultados
+     */
+    private function inferirEstadoFinancieroPorCodigo($codigo)
+    {
+        $primerDigito = substr($codigo, 0, 1);
+        
+        $mapeo = [
+            '1' => 'BALANCE_GENERAL',
+            '2' => 'BALANCE_GENERAL',
+            '3' => 'BALANCE_GENERAL',
+            '4' => 'ESTADO_RESULTADOS',
+            '5' => 'ESTADO_RESULTADOS',
+            '6' => 'ESTADO_RESULTADOS',
+            '7' => 'ESTADO_RESULTADOS',
+        ];
+        
+        return $mapeo[$primerDigito] ?? 'NINGUNO';
+    }
+
+    /**
+     * Determinar si una cuenta es calculada
+     * Una cuenta es calculada si existen otras cuentas que comienzan con su código
+     * Ejemplo: 1.1 es calculada si existen cuentas como 1.1.01, 1.1.02, etc.
+     */
+    private function esCuentaCalculada($codigo, $todasLasCuentas)
+    {
+        // Normalizar el código (remover puntos para comparación)
+        $codigoNormalizado = str_replace('.', '', $codigo);
+        
+        // Buscar si hay cuentas que sean "hijas" de esta
+        foreach ($todasLasCuentas as $otraCuenta) {
+            $otroCodigo = $otraCuenta['codigo'];
+            $otroCodigoNormalizado = str_replace('.', '', $otroCodigo);
+            
+            // Si encontramos una cuenta cuyo código comienza con el nuestro
+            // y es más larga, entonces esta cuenta es calculada
+            if ($otroCodigo !== $codigo && 
+                str_starts_with($otroCodigoNormalizado, $codigoNormalizado)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

@@ -20,6 +20,24 @@ class Periodo extends Model
         'fecha_fin',
     ];
 
+    protected $appends = ['nombre', 'año'];
+
+    /**
+     * Accessor para obtener el nombre del periodo.
+     */
+    public function getNombreAttribute(): string
+    {
+        return "Periodo {$this->anio}";
+    }
+
+    /**
+     * Accessor para obtener el año (alias de anio).
+     */
+    public function getAñoAttribute(): int
+    {
+        return $this->anio;
+    }
+
     /**
      * Un periodo puede tener muchos estados financieros (Balance, Resultados).
      */
