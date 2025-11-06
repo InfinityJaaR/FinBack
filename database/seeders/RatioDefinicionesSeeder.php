@@ -67,6 +67,19 @@ class RatioDefinicionesSeeder extends Seeder
                     ['concepto_codigo' => 'CXC', 'rol' => 'DENOMINADOR', 'orden' => 1, 'requiere_promedio' => true, 'sentido' => 1],
                 ],
             ],
+            [
+                'codigo' => 'RENTABILIDAD',
+                'nombre' => 'Rentabilidad sobre Activos (ROA)',
+                'formula' => 'Utilidad Neta / Activo Total',
+                'sentido' => 'MAYOR_MEJOR',
+                'categoria' => 'RENTABILIDAD',
+                'multiplicador' => 1.0,
+                'is_protected' => true,
+                'componentes' => [
+                    ['concepto_codigo' => 'UTILIDAD_NETA', 'rol' => 'NUMERADOR', 'orden' => 1, 'requiere_promedio' => false, 'sentido' => 1],
+                    ['concepto_codigo' => 'ACT_TOTAL', 'rol' => 'DENOMINADOR', 'orden' => 1, 'requiere_promedio' => false, 'sentido' => 1],
+                ],
+            ],
         ];
 
         foreach ($definitions as $def) {
