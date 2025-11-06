@@ -12,10 +12,10 @@ class EstadosYDetallesSeeder extends Seeder
     public function run(): void
     {
         // Empresas con catálogo completo
-        $empresas = [2, 3];
-        
-        // Periodos a crear (2023 y 2024)
-        $periodos = Periodo::whereIn('anio', [2023, 2024])->get();
+        $empresas = [1,2];
+
+        // Periodos a crear (2022, 2023, 2024 y 2025)
+        $periodos = Periodo::whereIn('anio', [2022, 2023, 2024, 2025])->get();
 
         foreach ($empresas as $empresaId) {
             foreach ($periodos as $periodo) {
