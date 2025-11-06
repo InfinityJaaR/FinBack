@@ -36,12 +36,8 @@ class RubroUpdateRequest extends FormRequest
             ],
             'nombre' => 'required|string|max:100',
             
-            // Campos opcionales y numéricos/decimales.
+            // Campos opcionales.
             'descripcion' => 'nullable|string',
-            'promedio_prueba_acida' => 'nullable|numeric|decimal:0,2',
-            'promedio_liquidez_corriente' => 'nullable|numeric|decimal:0,2',
-            'promedio_apalancamiento' => 'nullable|numeric|decimal:0,2',
-            'promedio_rentabilidad' => 'nullable|numeric|decimal:0,2',
         ];
     }
     

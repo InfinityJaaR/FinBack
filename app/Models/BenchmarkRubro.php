@@ -13,14 +13,12 @@ class BenchmarkRubro extends Model
     protected $fillable = [
         'rubro_id',
         'ratio_id',
-        'anio',
         'valor_promedio',
         'fuente',
     ];
 
     protected $casts = [
-        'valor_promedio' => 'decimal:6',
-        'anio' => 'integer',
+        'valor_promedio' => 'decimal:2',
     ];
 
     /**

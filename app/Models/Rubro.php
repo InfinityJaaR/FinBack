@@ -15,18 +15,11 @@ class Rubro extends Model
         'codigo',
         'nombre',
         'descripcion',
-        'promedio_prueba_acida',
-        'promedio_liquidez_corriente',
-        'promedio_apalancamiento',
-        'promedio_rentabilidad',
     ];
-
+    
+    // Los promedios ahora se almacenan en `benchmarks_rubro` como filas por (rubro_id, ratio_id).
     protected $casts = [
-        // Asegura que los campos de benchmark se manejen como flotantes/decimales en PHP.
-        'promedio_prueba_acida' => 'decimal:2',
-        'promedio_liquidez_corriente' => 'decimal:2',
-        'promedio_apalancamiento' => 'decimal:2',
-        'promedio_rentabilidad' => 'decimal:2',
+        // Mantener solo casts relevantes al modelo Rubro.
     ];
 
     /**

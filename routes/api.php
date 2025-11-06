@@ -68,6 +68,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // NOTA: También podrías usar Route::patch() si solo permitieras actualizaciones parciales.
             // 5. ELIMINAR un rubro (Destroy)
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
+            // Benchmarks management for a rubro
+            Route::get('/rubros/{rubro}/benchmarks', [\App\Http\Controllers\BenchmarkRubroController::class, 'index']);
+            Route::post('/rubros/{rubro}/benchmarks', [\App\Http\Controllers\BenchmarkRubroController::class, 'store']);
+            Route::delete('/rubros/{rubro}/benchmarks/{benchmark}', [\App\Http\Controllers\BenchmarkRubroController::class, 'destroy']);
         });
 
         Route::middleware(['auth:sanctum','role:Administrador','permiso:ver_ratios'])->group(function () {

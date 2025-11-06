@@ -39,11 +39,9 @@ class RubroStoreRequest extends FormRequest
             // Campo opcional
             'descripcion' => 'nullable|string',
 
-            // Campos de promedios (benchmarks), deben ser opcionales y numéricos/decimales.
-            'promedio_prueba_acida' => 'nullable|numeric|decimal:0,2',
-            'promedio_liquidez_corriente' => 'nullable|numeric|decimal:0,2',
-            'promedio_apalancamiento' => 'nullable|numeric|decimal:0,2',
-            'promedio_rentabilidad' => 'nullable|numeric|decimal:0,2',
+            // Los promedios ya no forman parte del payload de Rubro. Si se desea
+            // crear benchmarks para un rubro, use el endpoint de benchmarks o el
+            // proceso administrativo correspondiente que persista en `benchmarks_rubro`.
         ];
     }
     
