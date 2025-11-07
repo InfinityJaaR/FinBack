@@ -40,11 +40,17 @@ public function listas(): \Illuminate\Http\JsonResponse
             ->orderBy('codigo')
             ->get();
 
-        $cuentasEmpresa = DB::table('catalogo_cuentas')
-            ->where('empresa_id', $empresa)
-            ->select('id','codigo','nombre')
-            ->orderBy('codigo')
+        $cuentasEmpresa = DB::table('catalogo_cuentas as c')
+            ->join('detalles_estado as d', 'c.id', '=', 'd.catalogo_cuenta_id')
+            ->join('estados as e', 'd.estado_id', '=', 'e.id')
+            ->where('c.empresa_id', $empresa)
+            ->where('e.empresa_id', $empresa)
+            ->where('d.usar_en_ratios', 1)
+            ->select('c.id', 'c.codigo', 'c.nombre')
+            ->distinct()
+            ->orderBy('c.codigo')
             ->get();
+
 
         $mapeos = DB::table('cuenta_concepto as cc')
             ->join('catalogo_cuentas as c', 'cc.catalogo_cuenta_id', '=', 'c.id')
