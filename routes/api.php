@@ -10,6 +10,7 @@ use App\Http\Controllers\RatioDefinicionController;
 use App\Http\Controllers\CatalogoCuentaController;
 use App\Http\Controllers\PeriodoController;
 use App\Http\Controllers\EstadoFinancieroController;
+use App\Http\Controllers\AnalisisBalanceController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -205,6 +206,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // ELIMINAR estado financiero
             Route::delete('/estados-financieros/{id}', [EstadoFinancieroController::class, 'destroy'])->name('estados.destroy');
         });
+    });
+
+    // ----------------------------------------------------------------------
+    // GRUPO DE RUTAS: ANÁLISIS DE BALANCE (Vertical y Horizontal)
+    // Permiso requerido: 'analizar_balance'
+    // - Analista: empresa_id se infiere desde su usuario
+    // - Administrador: empresa_id viene desde el front
+    // ----------------------------------------------------------------------
+    Route::middleware(['permiso:analizar_balance'])->group(function () {
+        Route::get('/analisis/balance/vertical', [AnalisisBalanceController::class, 'vertical']);
+        Route::get('/analisis/balance/horizontal', [AnalisisBalanceController::class, 'horizontal']);
     });
 
     Route::middleware('role:Analista Financiero')->group(function () {

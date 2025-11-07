@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
             VentaMensualSeeder::class, 
             
             // Datos contables de prueba
-            EstadosYDetallesSeeder::class, 
+            //EstadosYDetallesSeeder::class, 
             
             // Componentes que usan las definiciones y los conceptos.
             // NOTE: `RatioComponentesSeeder` fue movido a deprecated — los componentes

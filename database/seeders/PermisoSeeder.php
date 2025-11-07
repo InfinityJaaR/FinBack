@@ -33,6 +33,7 @@ class PermisoSeeder extends Seeder
 
 
             //Analisis y reportes
+            ['name' => 'analizar_balance', 'description' => 'Consultar análisis vertical y horizontal del balance general.'],
 
             //Proyección de Ventas
         ];
@@ -58,12 +59,14 @@ class PermisoSeeder extends Seeder
                 'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
+                'analizar_balance',
             ],
             'Analista Financiero' => [
                 // Agregar permisos específicos para Analista Financiero
                 'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
+                'analizar_balance',
             ],
             'Inversor' => [
                 // Agregar permisos específicos para Inversor
