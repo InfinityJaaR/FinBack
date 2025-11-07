@@ -469,4 +469,16 @@ class RatioDefinicionController extends Controller
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+    public function indexBasico()
+{
+    $list = \App\Models\RatioDefinicion::select('id','codigo','nombre')
+        ->orderBy('id')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $list,
+    ]);
+}
+
 }
