@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MapeoCatalogoController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
@@ -70,26 +71,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
         });
 
-        Route::middleware(['auth:sanctum','role:Administrador','permiso:ver_ratios'])->group(function () {
-        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
-        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
-        });
+
+        // --- Asignación de Catálogo: accesible para Admin y Analista ---
 
 
-
-            // Ver ratios (permiso ver_ratios)
-        Route::middleware(['permiso:ver_ratios'])->group(function () {
-            Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
-                // Listado de categorías permitidas para clasificar ratios
-                Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
-        });
-
-        // Generar ratios (permiso calcular_ratios)
-        Route::middleware(['permiso:calcular_ratios'])->group(function () {
-            Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
-            // Calcular un único ratio (dry-run + breakdown)
-            Route::get('/ratios/definiciones/{ratio_definicion}/calculate', [RatioDefinicionController::class, 'calculate']);
-        });
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: GESTIÓN DE EMPRESAS
         // Permiso requerido: 'gestionar_empresas'
@@ -130,7 +115,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_ratios_definicion')->group(function () {
             // LISTAR todas las definiciones de ratios (Index)
-            Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'index'])->name('ratios.definiciones.index');
+            // Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'index'])->name('ratios.definiciones.index');
 
             // CREAR una nueva definición de ratio (Store)
             Route::post('/ratios/definiciones', [RatioDefinicionController::class, 'store'])->name('ratios.definiciones.store');
@@ -205,6 +190,60 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // ELIMINAR estado financiero
             Route::delete('/estados-financieros/{id}', [EstadoFinancieroController::class, 'destroy'])->name('estados.destroy');
         });
+        // // ----------------------------------------------------------------------
+        // // COMPARACIONES INTERNAS (Ratios por periodo de una misma empresa)
+        // // Permiso requerido: 'ver_comparaciones_internas'
+        // // ----------------------------------------------------------------------
+        // Route::middleware('permiso:ver_comparaciones_internas')->group(function () {
+        //     // Obtener ratios por empresa y periodo (vista comparaciones internas)
+        //     Route::get(
+        //         '/empresas/{empresa}/ratios',
+        //         [\App\Http\Controllers\RatioDefinicionController::class, 'valoresPorPeriodo']
+        //     )->name('empresas.ratios.valores');
+
+        //     // Generar ratios (por si el analista los necesita recalcular)
+        //     Route::post(
+        //         '/empresas/{empresa}/ratios/generar',
+        //         [\App\Http\Controllers\RatioDefinicionController::class, 'generarPorPeriodo']
+        //     )->name('empresas.ratios.generar');
+        // });
+
+        Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_empresas'])->group(function () {
+        Route::get('/catalogo/mapeo/listas', [\App\Http\Controllers\MapeoCatalogoController::class, 'listas']);
+        Route::get('/empresas/{empresa}/catalogo/mapeo', [MapeoCatalogoController::class, 'data']);
+        Route::post('/empresas/catalogo/mapeo', [MapeoCatalogoController::class, 'upsert']);
+        });
+
+
+        Route::middleware(['auth:sanctum','role:Administrador, Analista Financiero','permiso:ver_ratios'])->group(function () {
+        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
+        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
+        });
+                    // Ver ratios (permiso ver_ratios)
+        Route::middleware(['permiso:ver_ratios'])->group(function () {
+            Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
+                // Listado de categorías permitidas para clasificar ratios
+                Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
+        });
+
+        // Generar ratios (permiso calcular_ratios)
+        Route::middleware(['permiso:calcular_ratios'])->group(function () {
+            Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
+            // Calcular un único ratio (dry-run + breakdown)
+            Route::get('/ratios/definiciones/{ratio_definicion}/calculate', [RatioDefinicionController::class, 'calculate']);
+        });
+        Route::middleware('permiso:ver_ratios')->group(function () {
+        // Nombre corto de empresa
+        Route::get('/empresas/{empresa}/resumen', [EmpresaController::class, 'resumen']);
+
+        // Lista básica de definiciones (id, codigo, nombre)
+        Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'indexBasico']);
+    });
+
+
+
+    
+
     });
 
     Route::middleware('role:Analista Financiero')->group(function () {
