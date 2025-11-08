@@ -488,11 +488,14 @@ class EstadoFinancieroController extends Controller
         }
 
         // Convertir detalles base a formato código => monto
+        // IMPORTANTE: Preservar usar_en_ratios original
         $montoPorCodigo = [];
+        $usarEnRatiosPorCodigo = []; // Nuevo: mapeo de código a usar_en_ratios
         foreach ($detallesBase as $detalle) {
             $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
             if ($codigo) {
                 $montoPorCodigo[$codigo] = $detalle['monto'];
+                $usarEnRatiosPorCodigo[$codigo] = $detalle['usar_en_ratios'] ?? false; // Preservar valor original
             }
         }
 
@@ -670,18 +673,23 @@ class EstadoFinancieroController extends Controller
             $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
             // Solo agregar si no es una cuenta calculada (no está en montosCalculados)
             if ($codigo && !isset($montosCalculados[$codigo])) {
-                $todosLosDetalles[] = $detalle;
+                // Preservar el valor original de usar_en_ratios
+                $todosLosDetalles[] = [
+                    'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
+                    'monto' => $detalle['monto'],
+                    'usar_en_ratios' => $detalle['usar_en_ratios'] ?? false, // Usar valor original del checkbox
+                ];
             }
         }
         
-        // Agregar detalles calculados (sin usar_en_ratios, default false en BD)
+        // Agregar detalles calculados (estos NO deben usarse en ratios por defecto)
         foreach ($montosCalculados as $codigo => $monto) {
             $cuentaId = $codigoAId[$codigo] ?? null;
             if ($cuentaId) {
                 $todosLosDetalles[] = [
                     'catalogo_cuenta_id' => $cuentaId,
                     'monto' => $monto,
-                    'usar_en_ratios' => false, // Cuentas calculadas no se usan en ratios por defecto
+                    'usar_en_ratios' => false, // Cuentas calculadas/agregadas no se usan en ratios
                 ];
             }
         }
