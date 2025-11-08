@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
 use App\Http\Controllers\EmpresaController;
+use App\Http\Controllers\BenchmarkRubroController;
 use App\Http\Controllers\RatioDefinicionController;
 use App\Http\Controllers\CatalogoCuentaController;
 use App\Http\Controllers\PeriodoController;
@@ -57,7 +58,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_rubros')->group(function () {
             // 1. OBTENER todos los rubros (Index)
-            Route::get('/rubros', [RubroController::class, 'index'])->name('rubros.index');
+            // Route::get('/rubros', [RubroController::class, 'index'])->name('rubros.index');//comentado por que ya existe una ruta publica para obtener los rubros mas abajo dentro de los grupos de admin y analista
             // 2. CREAR un nuevo rubro (Store)
             Route::post('/rubros', [RubroController::class, 'store'])->name('rubros.store');
             // 3. OBTENER un rubro específico (Show)
@@ -85,7 +86,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_empresas')->group(function () {
             // LISTAR todas las empresas (Index)
-            Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
+            // Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
 
             // CREAR una nueva empresa (Store)
             Route::post('/empresas', [EmpresaController::class, 'store'])->name('empresas.store');
@@ -95,7 +96,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // OBTENER una empresa específica (Show)
             // Usamos {empresa} para Route Model Binding.
-            Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
+            // Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
 
             // OBTENER datos para el formulario de edición (Edit) - Opcional en API
             Route::get('/empresas/{empresa}/edit', [EmpresaController::class, 'edit'])->name('empresas.edit');
@@ -112,6 +113,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // LISTAR usuarios de una empresa
             Route::get('/empresas/{empresa}/usuarios', [EmpresaController::class, 'usuarios'])->name('empresas.usuarios');
         });
+
+
 
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: DEFINICIÓN DE RATIOS
@@ -244,9 +247,27 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'indexBasico']);
     });
 
+    // Ruta para obtener los ratios de un rubro con su valor de referencia y las empresas que lo cumplen
+    // =======================================================
+// CONSULTAS DE RUBROS Y BENCHMARKS (solo lectura segura)
+// =======================================================
+Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_ratios'])
+    ->get('/rubros', [RubroController::class, 'index'])
+    ->name('rubros.index');
 
-
+Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_ratios'])
+    ->get('/benchmark/rubro-ratios', [BenchmarkRubroController::class, 'rubroRatios']);
     
+            // =======================================================
+// CONSULTAS DE EMPRESAS (solo lectura, Admin + Analista)
+// =======================================================
+Route::middleware(['permiso:ver_empresas'])->group(function () {
+    // Listar todas las empresas (para selects o vistas de análisis)
+    Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
+    // Ver detalle de una empresa específica
+    Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
+});
+
 
     });
 
