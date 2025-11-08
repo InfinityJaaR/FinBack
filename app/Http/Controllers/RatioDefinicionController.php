@@ -375,6 +375,20 @@ class RatioDefinicionController extends Controller
 
     public function valoresPorPeriodo(Empresa $empresa, VerRatiosEmpresaRequest $request): JsonResponse
     {
+
+        // Bloque de restricción por empresa para Analista Financiero
+    $user = $request->user();
+    if ($user) {
+        // Obtén el nombre de sus roles (si no tienes hasRole helper)
+        $roles = $user->roles()->pluck('name')->toArray();
+
+        if (in_array('Analista Financiero', $roles, true) && (int)$user->empresa_id !== (int)$empresa->id) {
+            return response()->json([
+                'message' => 'No tiene permiso para ver los ratios de otra empresa.'
+            ], 403);
+        }
+    }
+
         $validated = $request->validated();
         $periodoInput = (int) ($validated['periodo_id'] ?? $request->query('periodo_id'));
         $periodoId = $this->resolvePeriodoId($periodoInput);
