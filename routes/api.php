@@ -197,23 +197,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // ELIMINAR estado financiero
             Route::delete('/estados-financieros/{id}', [EstadoFinancieroController::class, 'destroy'])->name('estados.destroy');
         });
-        // // ----------------------------------------------------------------------
-        // // COMPARACIONES INTERNAS (Ratios por periodo de una misma empresa)
-        // // Permiso requerido: 'ver_comparaciones_internas'
-        // // ----------------------------------------------------------------------
-        // Route::middleware('permiso:ver_comparaciones_internas')->group(function () {
-        //     // Obtener ratios por empresa y periodo (vista comparaciones internas)
-        //     Route::get(
-        //         '/empresas/{empresa}/ratios',
-        //         [\App\Http\Controllers\RatioDefinicionController::class, 'valoresPorPeriodo']
-        //     )->name('empresas.ratios.valores');
-
-        //     // Generar ratios (por si el analista los necesita recalcular)
-        //     Route::post(
-        //         '/empresas/{empresa}/ratios/generar',
-        //         [\App\Http\Controllers\RatioDefinicionController::class, 'generarPorPeriodo']
-        //     )->name('empresas.ratios.generar');
-        // });
 
         Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_empresas'])->group(function () {
         Route::get('/catalogo/mapeo/listas', [\App\Http\Controllers\MapeoCatalogoController::class, 'listas']);
