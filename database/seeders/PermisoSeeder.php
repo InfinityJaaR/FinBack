@@ -33,11 +33,13 @@ class PermisoSeeder extends Seeder
             //Para ratios
             ['name' => 'ver_ratios', 'description' => 'Permite consultar los ratios financieros de una empresa.'],
             ['name' => 'calcular_ratios', 'description' => 'Permite generar ratios financieros para una empresa.'],
-
+            
 
             //Analisis y reportes
 
             //Proyección de Ventas
+            ['name' => 'ver_proyecciones', 'description' => 'Permite ver las proyecciones de ventas de una empresa.'],
+            ['name' => 'gestion_proyeccion_ventas', 'description' => 'Permite generar y gestionar proyecciones de ventas'],
         ];
 
         foreach ($permisos as $permiso) {
@@ -61,12 +63,16 @@ class PermisoSeeder extends Seeder
                 'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
+                'gestion_proyeccion_ventas',
+                'ver_proyecciones',
                 'ver_comparaciones_internas',
                 'ver_empresas',
             ],
             'Analista Financiero' => [
                 // Agregar permisos específicos para Analista Financiero
                 'gestionar_catalogo_cuentas',
+                'gestion_proyeccion_ventas',
+                'ver_proyecciones',
                 'ver_ratios',
                 'calcular_ratios',
                 'ver_comparaciones_internas',

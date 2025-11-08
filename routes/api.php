@@ -12,6 +12,7 @@ use App\Http\Controllers\RatioDefinicionController;
 use App\Http\Controllers\CatalogoCuentaController;
 use App\Http\Controllers\PeriodoController;
 use App\Http\Controllers\EstadoFinancieroController;
+use App\Http\Controllers\ProyeccionController;
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
@@ -215,6 +216,22 @@ Route::middleware(['auth:sanctum'])->group(function () {
                 // Listado de categorías permitidas para clasificar ratios
                 Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
         });
+
+        // Generar proyección de ventas (Upsert): un único registro por (empresa, método, año)
+        // Esta ruta se protege por rol (Administrador, Analista Financiero) y por permiso específico.
+        Route::post('/empresas/{empresa}/proyecciones/generar', [ProyeccionController::class, 'generar'])
+            ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
+
+        // Consultas de Proyecciones
+        Route::get('/empresas/{empresa}/proyecciones', [ProyeccionController::class, 'index'])
+            ->middleware(['auth:sanctum','permiso:ver_proyecciones']);
+
+        Route::get('/empresas/{empresa}/proyecciones/{proyeccion}', [ProyeccionController::class, 'show'])
+            ->middleware(['auth:sanctum','permiso:ver_proyecciones']);
+
+        // Eliminar proyección
+        Route::delete('/empresas/{empresa}/proyecciones/{proyeccion}', [ProyeccionController::class, 'destroy'])
+            ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
 
         // Generar ratios (permiso calcular_ratios)
         Route::middleware(['permiso:calcular_ratios'])->group(function () {
