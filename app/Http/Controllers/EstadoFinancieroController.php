@@ -514,12 +514,15 @@ class EstadoFinancieroController extends Controller
         };
 
         // Recopilar todos los códigos padre únicos que necesitamos calcular
+        // SOLO si no fueron enviados explícitamente en $detallesBase
         $codigosPadreNecesarios = [];
         foreach (array_keys($montoPorCodigo) as $codigo) {
             $padres = $obtenerCodigosPadre($codigo);
             foreach ($padres as $padre) {
-                // Solo agregar si la cuenta padre existe en el catálogo
-                if (isset($codigoAId[$padre])) {
+                // Solo agregar si:
+                // 1. La cuenta padre existe en el catálogo
+                // 2. NO fue enviada explícitamente en $detallesBase (no está en $montoPorCodigo)
+                if (isset($codigoAId[$padre]) && !isset($montoPorCodigo[$padre])) {
                     $codigosPadreNecesarios[$padre] = true;
                 }
             }
@@ -668,28 +671,32 @@ class EstadoFinancieroController extends Controller
         // Combinar detalles base con calculados
         $todosLosDetalles = [];
         
-        // Agregar SOLO detalles base que NO sean calculados (hojas del árbol)
+        // Crear mapeo de catalog_cuenta_id a usar_en_ratios para preservar valores
+        $usarEnRatiosPorId = [];
         foreach ($detallesBase as $detalle) {
-            $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
-            // Solo agregar si no es una cuenta calculada (no está en montosCalculados)
-            if ($codigo && !isset($montosCalculados[$codigo])) {
-                // Preservar el valor original de usar_en_ratios
-                $todosLosDetalles[] = [
-                    'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
-                    'monto' => $detalle['monto'],
-                    'usar_en_ratios' => $detalle['usar_en_ratios'] ?? false, // Usar valor original del checkbox
-                ];
-            }
+            $usarEnRatiosPorId[$detalle['catalogo_cuenta_id']] = $detalle['usar_en_ratios'] ?? false;
         }
         
-        // Agregar detalles calculados (estos NO deben usarse en ratios por defecto)
+        // Agregar TODOS los detalles base (tanto calculados como no calculados que vinieron del frontend)
+        foreach ($detallesBase as $detalle) {
+            $codigo = $idACodigo[$detalle['catalogo_cuenta_id']] ?? null;
+            // Si la cuenta ya vino en los detalles base, usarla tal cual (preservando usar_en_ratios)
+            $todosLosDetalles[] = [
+                'catalogo_cuenta_id' => $detalle['catalogo_cuenta_id'],
+                'monto' => $detalle['monto'],
+                'usar_en_ratios' => $detalle['usar_en_ratios'] ?? false, // Usar valor original del checkbox
+            ];
+        }
+        
+        // Agregar SOLO las cuentas calculadas que NO fueron enviadas en $detallesBase
         foreach ($montosCalculados as $codigo => $monto) {
             $cuentaId = $codigoAId[$codigo] ?? null;
-            if ($cuentaId) {
+            // Solo agregar si NO estaba en los detalles base
+            if ($cuentaId && !isset($usarEnRatiosPorId[$cuentaId])) {
                 $todosLosDetalles[] = [
                     'catalogo_cuenta_id' => $cuentaId,
                     'monto' => $monto,
-                    'usar_en_ratios' => false, // Cuentas calculadas/agregadas no se usan en ratios
+                    'usar_en_ratios' => false, // Por defecto false para cuentas auto-calculadas
                 ];
             }
         }
