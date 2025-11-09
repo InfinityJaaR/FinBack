@@ -13,14 +13,24 @@ class ProyeccionDetalle extends Model
 
     protected $fillable = [
         'proyeccion_id',
-        'fecha_proyectada',
+        'anio',
+        'mes',
         'monto_proyectado',
     ];
 
     protected $casts = [
-        'fecha_proyectada' => 'date',
         'monto_proyectado' => 'decimal:2',
     ];
+
+    /**
+     * Accessor: periodo AAAA-MM (proyección)
+     */
+    public function getPeriodoAttribute(): string
+    {
+        $a = $this->anio;
+        $m = $this->mes;
+        return sprintf('%04d-%02d', $a, $m);
+    }
 
     /**
      * El detalle pertenece a una proyección.

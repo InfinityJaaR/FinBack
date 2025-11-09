@@ -233,6 +233,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/empresas/{empresa}/proyecciones/{proyeccion}', [ProyeccionController::class, 'destroy'])
             ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
 
+        // Ventas Mensuales (históricas) para alimentar proyecciones
+        Route::get('/empresas/{empresa}/ventas-mensuales', [\App\Http\Controllers\VentaMensualController::class, 'index'])
+            ->middleware(['auth:sanctum','permiso:ver_proyecciones']);
+        Route::post('/empresas/{empresa}/ventas-mensuales', [\App\Http\Controllers\VentaMensualController::class, 'store'])
+            ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
+        Route::put('/empresas/{empresa}/ventas-mensuales/{ventaMensual}', [\App\Http\Controllers\VentaMensualController::class, 'update'])
+            ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
+        Route::delete('/empresas/{empresa}/ventas-mensuales/{ventaMensual}', [\App\Http\Controllers\VentaMensualController::class, 'destroy'])
+            ->middleware(['auth:sanctum','permiso:gestion_proyeccion_ventas']);
+
         // Generar ratios (permiso calcular_ratios)
         Route::middleware(['permiso:calcular_ratios'])->group(function () {
             Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);

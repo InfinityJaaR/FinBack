@@ -28,7 +28,7 @@ class ProyeccionController extends Controller
         $periodo = (int) $data['periodo_proyectado'];
         $options = $data['options'] ?? [];
 
-        // Generar los 12 meses proyectados (array de ['fecha_proyectada' => Y-m-d, 'monto_proyectado' => float])
+    // Generar los 12 meses proyectados (array de ['anio' => AAAA, 'mes' => M, 'monto_proyectado' => float])
         $detalles = $this->service->generar($empresa, $metodo, $periodo, $options);
 
         // Guardar en DB: upsert maestro y reemplazar detalles en transacción
@@ -54,7 +54,7 @@ class ProyeccionController extends Controller
                 $proyeccion->touch();
             }
 
-            // Borrar detalles previos y crear los nuevos
+            // Borrar detalles previos y crear los nuevos (solo anio/mes + monto)
             $proyeccion->detalles()->delete();
             if (! empty($detalles)) {
                 $proyeccion->detalles()->createMany($detalles);

@@ -12,14 +12,24 @@ class VentaMensual extends Model
 
     protected $fillable = [
         'empresa_id',
-        'fecha',
+        'anio',
+        'mes',
         'monto',
     ];
 
     protected $casts = [
         'monto' => 'decimal:2',
-        'fecha' => 'date',
     ];
+
+    /**
+     * Accessor: periodo AAAA-MM
+     */
+    public function getPeriodoAttribute(): string
+    {
+        $a = $this->anio;
+        $m = $this->mes;
+        return sprintf('%04d-%02d', $a, $m);
+    }
 
     /**
      * La venta mensual pertenece a una empresa (N:1).
