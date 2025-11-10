@@ -99,38 +99,32 @@ class ProyeccionService
             return $this->mesesDelAnoConFallback($periodo, $vals);
         }
 
-        $eps = 1e-6;
-        $pcts = [];
+        // 1. Variaciones porcentuales simples entre meses consecutivos
+        $eps = 1e-6; // para evitar división por cero
+        $variaciones = [];
         for ($i = 1; $i < $N; $i++) {
             $prev = $vals[$i - 1]['monto'];
             $curr = $vals[$i]['monto'];
             $den = max($eps, $prev);
-            $pcts[] = ($curr - $prev) / $den;
-        }
-        $useGeometric = true;
-        foreach ($pcts as $p) {
-            if (1 + $p <= 0) { $useGeometric = false; break; }
-        }
-        if ($useGeometric) {
-            $prod = 1.0;
-            foreach ($pcts as $p) { $prod *= (1 + $p); }
-            $avgPct = pow($prod, 1 / count($pcts)) - 1;
-        } else {
-            $avgPct = array_sum($pcts) / count($pcts);
+            $variaciones[] = ($curr - $prev) / $den; // (ventaActual - ventaAnterior) / ventaAnterior
         }
 
-        $last = $vals[$N - 1]['monto'];
-        $detalles = [];
+        // 2. Promedio aritmético de las variaciones
+        $promedioVariacion = empty($variaciones) ? 0.0 : array_sum($variaciones) / count($variaciones);
+
+        // 3. Proyección encadenada: cada nuevo mes = anterior + anterior * promedioVariacion
+        $ventaAnterior = $vals[$N - 1]['monto']; // última venta histórica
         $startDate = Carbon::createFromDate($periodo, 1, 1);
+        $detalles = [];
         for ($k = 0; $k < 12; $k++) {
-            $next = $last * (1 + $avgPct);
+            $ventaProyectada = $ventaAnterior + ($ventaAnterior * $promedioVariacion);
             $fechaCarbon = $startDate->copy()->addMonths($k);
             $detalles[] = [
                 'anio' => $fechaCarbon->year,
                 'mes' => $fechaCarbon->month,
-                'monto_proyectado' => round(max(0, $next), 2),
+                'monto_proyectado' => round(max(0, $ventaProyectada), 2),
             ];
-            $last = $next;
+            $ventaAnterior = $ventaProyectada; // encadenar para siguiente iteración
         }
         return $detalles;
     }
