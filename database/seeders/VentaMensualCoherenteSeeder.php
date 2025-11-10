@@ -5,13 +5,12 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Empresa;
 use App\Models\VentaMensual;
-use Carbon\Carbon;
 
 class VentaMensualCoherenteSeeder extends Seeder
 {
     /**
      * Seed the VentaMensual model with coherent monthly series for each company.
-     * This seeder is idempotent: uses updateOrCreate by (empresa_id, fecha) to avoid duplicates.
+     * Idempotente por (empresa_id, anio, mes).
      */
     public function run(): void
     {
@@ -20,12 +19,6 @@ class VentaMensualCoherenteSeeder extends Seeder
             $this->command->info('No companies found, skipping VentaMensualCoherenteSeeder.');
             return;
         }
-
-        // Generate data for the fixed year 2025 (Jan..Dec)
-        $months = 12;
-        $fixedYear = 2025;
-        // End date is December of fixed year
-        $end = Carbon::create($fixedYear, 12, 1);
 
         foreach ($empresas as $empresa) {
             // Choose a base and trend per company to create realistic patterns
@@ -39,29 +32,24 @@ class VentaMensualCoherenteSeeder extends Seeder
                 $season[] = 0.9 + (rand(0, 60) / 1000.0); // 0.90 .. 1.06
             }
 
-            // iterate from oldest (Jan) to newest (Dec)
-            for ($i = 0; $i < $months; $i++) {
-                $fecha = Carbon::create($fixedYear, $i + 1, 1)->toDateString();
+            // Rango solicitado: 2020-01 .. 2025-12
+            $startYear = 2020;
+            $endYear = 2025;
+            $idx = 0; // para el crecimiento compuesto
+            for ($year = $startYear; $year <= $endYear; $year++) {
+                for ($month = 1; $month <= 12; $month++) {
+                    // crecimiento compuesto mes a mes a partir del inicio
+                    $trendFactor = pow(1 + $monthlyGrowth, $idx);
+                    $seasonFactor = $season[($month - 1) % 12];
+                    $noise = rand(-500, 500);
+                    $monto = round(max(0, $base * $trendFactor * $seasonFactor + $noise), 2);
 
-                // index from 0..months-1 (older -> newer)
-                $idx = $i;
-
-                // Apply compound growth
-                $trendFactor = pow(1 + $monthlyGrowth, $idx);
-
-                // season by month
-                $monthIndex = intval(Carbon::parse($fecha)->month) - 1;
-                $seasonFactor = $season[$monthIndex % 12];
-
-                // small random noise
-                $noise = rand(-500, 500);
-
-                $monto = round(max(0, $base * $trendFactor * $seasonFactor + $noise), 2);
-
-                VentaMensual::updateOrCreate(
-                    ['empresa_id' => $empresa->id, 'fecha' => $fecha],
-                    ['monto' => $monto]
-                );
+                    VentaMensual::updateOrCreate(
+                        ['empresa_id' => $empresa->id, 'anio' => $year, 'mes' => $month],
+                        ['monto' => $monto]
+                    );
+                    $idx++;
+                }
             }
 
             $this->command->info("Seeded ventas for empresa_id={$empresa->id} ({$empresa->nombre})");

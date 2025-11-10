@@ -24,9 +24,6 @@ class GenerarProyeccionRequest extends FormRequest
         return [
             'metodo_usado' => ['required', 'string', 'in:minimos_cuadrados,incremento_porcentual,incremento_absoluto'],
             'periodo_proyectado' => ['required', 'integer', 'digits:4'],
-            'base_periodo_inicio' => ['nullable', 'date'],
-            'base_periodo_fin' => ['nullable', 'date'],
-            'options' => ['nullable', 'array'],
         ];
     }
 }

@@ -40,7 +40,8 @@ class DatabaseSeeder extends Seeder
             
             // 3. DATOS TRANSACCIONALES DE PRUEBA (Dependen de Empresas, Conceptos y Periodos)
             // Dependen de Empresa y Periodo
-            VentaMensualSeeder::class, 
+            // Ventas mensuales coherentes multi-año (2020-2025)
+            VentaMensualCoherenteSeeder::class, 
             
             // Datos contables de prueba
             EstadosYDetallesSeeder::class, 

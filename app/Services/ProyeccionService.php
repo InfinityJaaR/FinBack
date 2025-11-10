@@ -5,6 +5,7 @@ use App\Models\Empresa;
 use App\Models\VentaMensual;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class ProyeccionService
 {
@@ -14,36 +15,26 @@ class ProyeccionService
      */
     public function generar(Empresa $empresa, string $metodo, int $periodo, array $options = []): array
     {
-        // Obtener ventas históricas usando anio/mes (orden cronológico)
-        $query = VentaMensual::where('empresa_id', $empresa->id)
-            ->orderBy('anio')
-            ->orderBy('mes');
+        // Año inmediatamente anterior requerido
+        $anioBase = $periodo - 1;
+        // Tomar SOLO los 12 meses del año anterior
+        $ventas = VentaMensual::where('empresa_id', $empresa->id)
+            ->where('anio', $anioBase)
+            ->orderBy('mes')
+            ->get();
 
-        // Filtros opcionales de rango
-        if (! empty($options['base_periodo_inicio'])) {
-            $inicio = Carbon::parse($options['base_periodo_inicio']);
-            $query->where(function ($q) use ($inicio) {
-                $q->where('anio', '>', $inicio->year)
-                  ->orWhere(function($q2) use ($inicio) {
-                      $q2->where('anio', $inicio->year)->where('mes', '>=', $inicio->month);
-                  });
-            });
-        }
-        if (! empty($options['base_periodo_fin'])) {
-            $fin = Carbon::parse($options['base_periodo_fin']);
-            $query->where(function ($q) use ($fin) {
-                $q->where('anio', '<', $fin->year)
-                  ->orWhere(function($q2) use ($fin) {
-                      $q2->where('anio', $fin->year)->where('mes', '<=', $fin->month);
-                  });
-            });
-        }
-
-        $ventas = $query->get();
-
-        if (! empty($options['meses_historicos']) && is_int($options['meses_historicos'])) {
-            $ventas = $ventas->slice(max(0, $ventas->count() - $options['meses_historicos']))->values();
-        }
+        // Log de control: valores base usados
+        try {
+            $datosBase = $this->prepareVentas($ventas);
+            Log::info('ProyeccionService.datos_base', [
+                'empresa_id' => $empresa->id,
+                'periodo_proyectado' => $periodo,
+                'metodo_usado' => $metodo,
+                'anio_base' => $anioBase,
+                'total_registros' => count($datosBase),
+                'datos' => $datosBase,
+            ]);
+        } catch (\Throwable $e) {}
 
         switch ($metodo) {
             case 'minimos_cuadrados':
@@ -82,10 +73,9 @@ class ProyeccionService
         $b = ($N * $sumaXY - $sumaX * $sumaY) / $den;
         $a = ($sumaY - $b * $sumaX) / $N;
 
-        $lastDate = Carbon::create($vals[$N - 1]['anio'], $vals[$N - 1]['mes'], 1);
-        $startTarget = Carbon::createFromDate($periodo, 1, 1)->startOfDay();
-        $monthsDiff = $this->monthsBetween($lastDate, $startTarget);
-        $xStart = $N + max(1, $monthsDiff);
+    // Como usamos exactamente el año anterior, la serie termina en mes 12 de (periodo-1)
+    // Continuamos la secuencia x en enero del año proyectado como N+1, N+2, ... N+12
+    $xStart = $N + 1;
 
         $detalles = [];
         for ($k = 0; $k < 12; $k++) {

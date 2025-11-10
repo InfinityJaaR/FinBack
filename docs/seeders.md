@@ -9,7 +9,7 @@ Este documento resume qué seeders están activos, cuáles fueron movidos a *dep
 - `EmpresaSeeder` — empresas demo.
 - `RatioDefinicionesSeeder` — DEFINICIÓN CANÓNICA de ratios + sincroniza sus componentes.
   - Importante: este seeder ahora sincroniza los componentes a través de `concepto.codigo` y persiste en el pivot `operacion` y `factor`.
-- `PeriodoSeeder`, `CatalogoYMapeoSeeder`, `VentaMensualSeeder`, `EstadosYDetallesSeeder` — datos dependientes y de prueba.
+- `PeriodoSeeder`, `CatalogoYMapeoSeeder`, `VentaMensualCoherenteSeeder`, `EstadosYDetallesSeeder` — datos dependientes y de prueba.
 
 > Orden de ejecución recomendado: primero maestros (conceptos, rubros), luego definiciones (ratios), luego mapeos y datos transaccionales.
 
@@ -57,4 +57,4 @@ php artisan db:seed --class=Database\\Seeders\\RatioDefinicionesSeeder
 - Antes de eliminar columnas antiguas (`sentido`, `multiplicador` antiguo), confirma que todas las instancias y seeders ya usan la nueva semántica y que no hay código legacy leyendo las columnas viejas.
 
 ---
-Documentado: cambios realizados en Nov 2025 para soportar `operacion`/`factor` y `multiplicador_*`.
+Documentado: cambios realizados en Nov 2025 para soportar `operacion`/`factor`, `multiplicador_*` y reemplazo de `VentaMensualSeeder` por `VentaMensualCoherenteSeeder` (dataset multi-año 2020-2025 por empresa).
