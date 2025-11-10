@@ -35,6 +35,19 @@ class EmpresaController extends Controller
         }
     }
 
+    public function listAll(): \Illuminate\Http\JsonResponse
+{
+    $empresas = \App\Models\Empresa::select('id', 'nombre')
+        ->orderBy('nombre')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data'    => $empresas,
+    ]);
+}
+
+
     /**
      * Muestra el formulario para crear un nuevo recurso.
      * (Usualmente devuelve una vista, aquí simulamos los datos necesarios)
@@ -309,5 +322,16 @@ class EmpresaController extends Controller
     {
         return $rubro->empresas()->get(['id','nombre']);
     }
+    public function resumen(\App\Models\Empresa $empresa)
+{
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'id' => $empresa->id,
+            'nombre' => $empresa->nombre,
+        ],
+    ]);
+}
+
 
 }

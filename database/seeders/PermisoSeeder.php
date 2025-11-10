@@ -23,6 +23,9 @@ class PermisoSeeder extends Seeder
             ['name' => 'gestionar_rubros', 'description' => 'Permite crear, editar y eliminar rubros empresariales.'],
             ['name' => 'gestionar_empresas', 'description' => 'Permite crear, editar y eliminar empresas.'],
             ['name' => 'gestionar_ratios_definicion', 'description' => 'Permite crear, editar y eliminar definiciones de ratios financieros.'],
+            ['name' => 'ver_comparaciones_internas', 'description' => 'Puede ver la vista de comparaciones internas de ratios.'],
+            ['name' => 'ver_empresas', 'description' => 'Permite ver empresas sin modificarlas.'],
+
 
             //Gestión de datos financieros
             ['name' => 'gestionar_catalogo_cuentas', 'description' => 'Permite cargar, editar y eliminar catálogo de cuentas contables de las empresas.'],
@@ -59,6 +62,8 @@ class PermisoSeeder extends Seeder
                 'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
+                'ver_comparaciones_internas',
+                'ver_empresas',
                 'analizar_balance',
             ],
             'Analista Financiero' => [
@@ -66,6 +71,8 @@ class PermisoSeeder extends Seeder
                 'gestionar_catalogo_cuentas',
                 'ver_ratios',
                 'calcular_ratios',
+                'ver_comparaciones_internas',
+                'ver_empresas',
                 'analizar_balance',
             ],
             'Inversor' => [

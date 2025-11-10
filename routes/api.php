@@ -2,10 +2,12 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MapeoCatalogoController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RubroController;
 use App\Http\Controllers\EmpresaController;
+use App\Http\Controllers\BenchmarkRubroController;
 use App\Http\Controllers\RatioDefinicionController;
 use App\Http\Controllers\CatalogoCuentaController;
 use App\Http\Controllers\PeriodoController;
@@ -57,7 +59,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_rubros')->group(function () {
             // 1. OBTENER todos los rubros (Index)
-            Route::get('/rubros', [RubroController::class, 'index'])->name('rubros.index');
+            // Route::get('/rubros', [RubroController::class, 'index'])->name('rubros.index');//comentado por que ya existe una ruta publica para obtener los rubros mas abajo dentro de los grupos de admin y analista
             // 2. CREAR un nuevo rubro (Store)
             Route::post('/rubros', [RubroController::class, 'store'])->name('rubros.store');
             // 3. OBTENER un rubro específico (Show)
@@ -69,35 +71,23 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // NOTA: También podrías usar Route::patch() si solo permitieras actualizaciones parciales.
             // 5. ELIMINAR un rubro (Destroy)
             Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rubros.destroy');
+            // Benchmarks management for a rubro
+            Route::get('/rubros/{rubro}/benchmarks', [\App\Http\Controllers\BenchmarkRubroController::class, 'index']);
+            Route::post('/rubros/{rubro}/benchmarks', [\App\Http\Controllers\BenchmarkRubroController::class, 'store']);
+            Route::delete('/rubros/{rubro}/benchmarks/{benchmark}', [\App\Http\Controllers\BenchmarkRubroController::class, 'destroy']);
         });
 
-        Route::middleware(['auth:sanctum','role:Administrador','permiso:ver_ratios'])->group(function () {
-        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
-        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
-        });
+
+        // --- Asignación de Catálogo: accesible para Admin y Analista ---
 
 
-
-            // Ver ratios (permiso ver_ratios)
-        Route::middleware(['permiso:ver_ratios'])->group(function () {
-            Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
-                // Listado de categorías permitidas para clasificar ratios
-                Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
-        });
-
-        // Generar ratios (permiso calcular_ratios)
-        Route::middleware(['permiso:calcular_ratios'])->group(function () {
-            Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
-            // Calcular un único ratio (dry-run + breakdown)
-            Route::get('/ratios/definiciones/{ratio_definicion}/calculate', [RatioDefinicionController::class, 'calculate']);
-        });
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: GESTIÓN DE EMPRESAS
         // Permiso requerido: 'gestionar_empresas'
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_empresas')->group(function () {
             // LISTAR todas las empresas (Index)
-            Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
+            // Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
 
             // CREAR una nueva empresa (Store)
             Route::post('/empresas', [EmpresaController::class, 'store'])->name('empresas.store');
@@ -107,7 +97,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             // OBTENER una empresa específica (Show)
             // Usamos {empresa} para Route Model Binding.
-            Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
+            // Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
 
             // OBTENER datos para el formulario de edición (Edit) - Opcional en API
             Route::get('/empresas/{empresa}/edit', [EmpresaController::class, 'edit'])->name('empresas.edit');
@@ -125,13 +115,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/empresas/{empresa}/usuarios', [EmpresaController::class, 'usuarios'])->name('empresas.usuarios');
         });
 
+
+
         // ----------------------------------------------------------------------
         // GRUPO DE RUTAS: DEFINICIÓN DE RATIOS
         // Permiso requerido: 'gestionar_ratios_definicion'
         // ----------------------------------------------------------------------
         Route::middleware('permiso:gestionar_ratios_definicion')->group(function () {
             // LISTAR todas las definiciones de ratios (Index)
-            Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'index'])->name('ratios.definiciones.index');
+            // Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'index'])->name('ratios.definiciones.index');
 
             // CREAR una nueva definición de ratio (Store)
             Route::post('/ratios/definiciones', [RatioDefinicionController::class, 'store'])->name('ratios.definiciones.store');
@@ -206,6 +198,61 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // ELIMINAR estado financiero
             Route::delete('/estados-financieros/{id}', [EstadoFinancieroController::class, 'destroy'])->name('estados.destroy');
         });
+
+        Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_empresas'])->group(function () {
+        Route::get('/catalogo/mapeo/listas', [\App\Http\Controllers\MapeoCatalogoController::class, 'listas']);
+        Route::get('/empresas/{empresa}/catalogo/mapeo', [MapeoCatalogoController::class, 'data']);
+        Route::post('/empresas/catalogo/mapeo', [MapeoCatalogoController::class, 'upsert']);
+        });
+
+
+        Route::middleware(['auth:sanctum','role:Administrador, Analista Financiero','permiso:ver_ratios'])->group(function () {
+        Route::get('/benchmark/sector-ratio', [\App\Http\Controllers\BenchmarkController::class, 'sectorRatio']);
+        Route::get('/rubros/{rubro}/empresas', [\App\Http\Controllers\EmpresaController::class, 'porRubro']); // opcional para poblar select
+        });
+                    // Ver ratios (permiso ver_ratios)
+        Route::middleware(['permiso:ver_ratios'])->group(function () {
+            Route::get('/empresas/{empresa}/ratios', [RatioDefinicionController::class, 'valoresPorPeriodo']);
+                // Listado de categorías permitidas para clasificar ratios
+                Route::get('/ratios/categorias', [RatioDefinicionController::class, 'categorias']);
+        });
+
+        // Generar ratios (permiso calcular_ratios)
+        Route::middleware(['permiso:calcular_ratios'])->group(function () {
+            Route::post('/empresas/{empresa}/ratios/generar', [RatioDefinicionController::class, 'generarPorPeriodo']);
+            // Calcular un único ratio (dry-run + breakdown)
+            Route::get('/ratios/definiciones/{ratio_definicion}/calculate', [RatioDefinicionController::class, 'calculate']);
+        });
+        Route::middleware('permiso:ver_ratios')->group(function () {
+        // Nombre corto de empresa
+        Route::get('/empresas/{empresa}/resumen', [EmpresaController::class, 'resumen']);
+
+        // Lista básica de definiciones (id, codigo, nombre)
+        Route::get('/ratios/definiciones', [RatioDefinicionController::class, 'indexBasico']);
+    });
+
+    // Ruta para obtener los ratios de un rubro con su valor de referencia y las empresas que lo cumplen
+    // =======================================================
+// CONSULTAS DE RUBROS Y BENCHMARKS (solo lectura segura)
+// =======================================================
+Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_ratios'])
+    ->get('/rubros', [RubroController::class, 'index'])
+    ->name('rubros.index');
+
+Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','permiso:ver_ratios'])
+    ->get('/benchmark/rubro-ratios', [BenchmarkRubroController::class, 'rubroRatios']);
+    
+            // =======================================================
+// CONSULTAS DE EMPRESAS (solo lectura, Admin + Analista)
+// =======================================================
+Route::middleware(['permiso:ver_empresas'])->group(function () {
+    // Listar todas las empresas (para selects o vistas de análisis)
+    Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
+    // Ver detalle de una empresa específica
+    Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
+});
+
+
     });
 
     // ----------------------------------------------------------------------
