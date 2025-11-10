@@ -5,24 +5,25 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class VentaMensual extends Model
+class ProyeccionDetalle extends Model
 {
     use HasFactory;
-    protected $table = 'ventas_mensuales';
+
+    protected $table = 'proyecciones_detalle';
 
     protected $fillable = [
-        'empresa_id',
+        'proyeccion_id',
         'anio',
         'mes',
-        'monto',
+        'monto_proyectado',
     ];
 
     protected $casts = [
-        'monto' => 'decimal:2',
+        'monto_proyectado' => 'decimal:2',
     ];
 
     /**
-     * Accessor: periodo AAAA-MM
+     * Accessor: periodo AAAA-MM (proyección)
      */
     public function getPeriodoAttribute(): string
     {
@@ -32,10 +33,10 @@ class VentaMensual extends Model
     }
 
     /**
-     * La venta mensual pertenece a una empresa (N:1).
+     * El detalle pertenece a una proyección.
      */
-    public function empresa(): BelongsTo
+    public function proyeccion(): BelongsTo
     {
-        return $this->belongsTo(Empresa::class);
+        return $this->belongsTo(Proyeccion::class, 'proyeccion_id');
     }
 }
