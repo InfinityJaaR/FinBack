@@ -41,6 +41,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/users/{id}', [UserController::class, 'show']);
             Route::put('/users/{id}', [UserController::class, 'update']);
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
+            Route::patch('/users/{id}/reactivate', [UserController::class, 'reactive']);
+            Route::delete('/users/{id}/permanent', [UserController::class, 'eliminarUsuario']);
+            // Obtener todas las empresas para selectores en gestión de usuarios
+            Route::get('/empresas-all', [EmpresaController::class, 'listAll'])->name('empresas.listAll.users');
+            // Obtener el rol de Analista Financiero
+            Route::get('/roles/analista-financiero', [UserController::class, 'getAnalistaFinancieroRole']);
         });
 
         //     // --- Ratios por empresa (protegidas) ---
@@ -275,6 +281,8 @@ Route::middleware(['auth:sanctum','role:Administrador,Analista Financiero','perm
 Route::middleware(['permiso:ver_empresas'])->group(function () {
     // Listar todas las empresas (para selects o vistas de análisis)
     Route::get('/empresas', [EmpresaController::class, 'index'])->name('empresas.index');
+    // Listar todas las empresas sin paginación (para selectores)
+    Route::get('/empresas-all', [EmpresaController::class, 'listAll'])->name('empresas.listAll');
     // Ver detalle de una empresa específica
     Route::get('/empresas/{empresa}', [EmpresaController::class, 'show'])->name('empresas.show');
 });

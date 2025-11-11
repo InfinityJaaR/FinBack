@@ -23,10 +23,6 @@ class RolSeeder extends Seeder
                 'name' => 'Analista Financiero',
                 'description' => 'Usuario con acceso a su empresa y a la información de su rubro',
             ],
-            [
-                'name' => 'Inversor',
-                'description' => 'Usuario con acceso a lo resumido de los rubros',
-            ],
         ];
         foreach ($roles as $role) {
             DB::table('roles')->updateOrInsert(

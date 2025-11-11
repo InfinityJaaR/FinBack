@@ -105,6 +105,37 @@ class UserController extends Controller
         ], 200);
     }
 
+    public function store(Request $request)
+    {
+        $validator = \Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'role_id' => 'required|exists:roles,id',
+            'empresa_id' => 'nullable|exists:empresas,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Crear usuario sin contraseña
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => null, // Sin contraseña, la establecerá el usuario en su primer login
+            'active' => true,
+            'empresa_id' => $request->empresa_id
+        ]);
+
+        // Asignar rol
+        $user->roles()->sync([$request->role_id]);
+
+        return response()->json([
+            'message' => 'Usuario creado correctamente',
+            'user' => $user->load(['roles', 'empresa'])
+        ], 201);
+    }
+
     public function destroy($id)
     {
         $user = User::find($id);
@@ -153,6 +184,25 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuario eliminado correctamente'
+        ], 200);
+    }
+
+    /**
+     * Obtener el rol de Analista Financiero
+     */
+    public function getAnalistaFinancieroRole()
+    {
+        $role = Rol::where('name', 'Analista Financiero')->first();
+
+        if (!$role) {
+            return response()->json([
+                'message' => 'Rol Analista Financiero no encontrado'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $role
         ], 200);
     }
 }
