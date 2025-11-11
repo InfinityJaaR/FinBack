@@ -416,26 +416,26 @@ class EstadoFinancieroController extends Controller
                 }
 
                 $empresas = Empresa::where('id', $user->empresa_id)
-                    ->withCount('catalogoCuentas')
                     ->get()
                     ->map(function ($empresa) {
+                        $totalCuentas = CatalogoCuenta::where('empresa_id', $empresa->id)->count();
                         return [
                             'id' => $empresa->id,
                             'nombre' => $empresa->nombre,
                             'ruc' => $empresa->ruc,
-                            'tiene_catalogo' => $empresa->catalogo_cuentas_count > 0,
+                            'tiene_catalogo' => $totalCuentas > 0,
                         ];
                     });
             } else {
                 // Administrador puede ver todas las empresas
-                $empresas = Empresa::withCount('catalogoCuentas')
-                    ->get()
+                $empresas = Empresa::get()
                     ->map(function ($empresa) {
+                        $totalCuentas = CatalogoCuenta::where('empresa_id', $empresa->id)->count();
                         return [
                             'id' => $empresa->id,
                             'nombre' => $empresa->nombre,
                             'ruc' => $empresa->ruc,
-                            'tiene_catalogo' => $empresa->catalogo_cuentas_count > 0,
+                            'tiene_catalogo' => $totalCuentas > 0,
                         ];
                     });
             }

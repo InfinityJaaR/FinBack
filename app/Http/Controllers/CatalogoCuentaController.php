@@ -340,8 +340,7 @@ class CatalogoCuentaController extends Controller
                     ], 403);
                 }
                 
-                $empresa = Empresa::withCount('catalogoCuentas')
-                    ->where('id', $user->empresa_id)
+                $empresa = Empresa::where('id', $user->empresa_id)
                     ->first();
                 
                 if (!$empresa) {
@@ -351,24 +350,26 @@ class CatalogoCuentaController extends Controller
                     ], 404);
                 }
                 
+                $totalCuentas = CatalogoCuenta::where('empresa_id', $empresa->id)->count();
+                
                 $empresas = collect([[
                     'id' => $empresa->id,
                     'nombre' => $empresa->nombre,
                     'ruc' => $empresa->ruc,
-                    'tiene_catalogo' => $empresa->catalogo_cuentas_count > 0,
-                    'total_cuentas' => $empresa->catalogo_cuentas_count,
+                    'tiene_catalogo' => $totalCuentas > 0,
+                    'total_cuentas' => $totalCuentas,
                 ]]);
             } else {
                 // Administrador puede ver todas las empresas
-                $empresas = Empresa::withCount('catalogoCuentas')
-                    ->get()
+                $empresas = Empresa::get()
                     ->map(function ($empresa) {
+                        $totalCuentas = CatalogoCuenta::where('empresa_id', $empresa->id)->count();
                         return [
                             'id' => $empresa->id,
                             'nombre' => $empresa->nombre,
                             'ruc' => $empresa->ruc,
-                            'tiene_catalogo' => $empresa->catalogo_cuentas_count > 0,
-                            'total_cuentas' => $empresa->catalogo_cuentas_count,
+                            'tiene_catalogo' => $totalCuentas > 0,
+                            'total_cuentas' => $totalCuentas,
                         ];
                     });
             }
